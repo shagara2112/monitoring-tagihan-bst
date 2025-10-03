@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { createServerSupabaseClient } from '@/lib/supabase-client'
 import { verifyAuth, isManagerOrAdmin } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -16,56 +16,52 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const region = searchParams.get('region')
 
-    // Build where clause based on region filter
-    const whereClause = region && region !== 'ALL' 
-      ? { workRegion: region }
-      : {}
+    const supabase = createServerSupabaseClient()
 
-    // Get all invoices with optional region filter
-    const invoices = await db.invoice.findMany({
-      where: whereClause,
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    // Build query based on region filter
+    let query = supabase
+      .from('invoices')
+      .select(`
+        *,
+        createdBy:users(id, name, email)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (region && region !== 'ALL') {
+      query = query.eq('work_region', region)
+    }
+
+    const { data: invoices, error } = await query
+
+    if (error) {
+      console.error('Supabase error:', error)
+      throw new Error('Failed to fetch invoices')
+    }
 
     // Calculate overall statistics
-    const totalInvoices = invoices.length
-    const settledInvoices = invoices.filter(inv => inv.status === 'SETTLED').length
-    const pendingInvoices = invoices.filter(inv => 
+    const totalInvoices = invoices?.length || 0
+    const settledInvoices = invoices?.filter(inv => inv.status === 'SETTLED').length || 0
+    const pendingInvoices = invoices?.filter(inv => 
       inv.status === 'SUBMITTED' || 
       inv.status === 'INTERNAL_VALIDATION' || 
       inv.status === 'AWAITING_PAYMENT'
-    ).length
-    const overdueInvoices = invoices.filter(inv => 
-      new Date(inv.dueDate) < new Date() && 
+    ).length || 0
+    const overdueInvoices = invoices?.filter(inv => 
+      new Date(inv.due_date) < new Date() && 
       inv.status !== 'SETTLED' && 
       inv.status !== 'DRAFT'
-    ).length
+    ).length || 0
 
-    const totalAmount = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
-    const settledAmount = invoices
-      .filter(inv => inv.status === 'SETTLED')
-      .reduce((sum, inv) => sum + (inv.settlementAmount || inv.totalAmount), 0)
-    const pendingAmount = invoices
-      .filter(inv => inv.status !== 'SETTLED')
-      .reduce((sum, inv) => sum + inv.totalAmount, 0)
-    const overdueAmount = invoices
-      .filter(inv => 
-        new Date(inv.dueDate) < new Date() && 
-        inv.status !== 'SETTLED' && 
-        inv.status !== 'DRAFT'
-      )
-      .reduce((sum, inv) => sum + inv.totalAmount, 0)
+    const totalAmount = invoices?.reduce((sum, inv) => sum + inv.total_amount, 0) || 0
+    const settledAmount = invoices?.filter(inv => inv.status === 'SETTLED')
+      .reduce((sum, inv) => sum + (inv.settlement_amount || inv.total_amount), 0) || 0
+    const pendingAmount = invoices?.filter(inv => inv.status !== 'SETTLED')
+      .reduce((sum, inv) => sum + inv.total_amount, 0) || 0
+    const overdueAmount = invoices?.filter(inv => 
+      new Date(inv.due_date) < new Date() && 
+      inv.status !== 'SETTLED' && 
+      inv.status !== 'DRAFT'
+    ).reduce((sum, inv) => sum + inv.total_amount, 0) || 0
 
     const analyticsData = {
       totalInvoices,
@@ -84,70 +80,82 @@ export async function GET(request: NextRequest) {
     }
 
     // For all regions, also include regional breakdown
-    const regionData = await Promise.all([
+    const regionData = [
       // TARAKAN
-      (() => {
-        const tarakanInvoices = invoices.filter(inv => inv.workRegion === 'TARAKAN')
-        const settled = tarakanInvoices.filter(inv => inv.status === 'SETTLED')
-        const pending = tarakanInvoices.filter(inv => 
-          inv.status === 'SUBMITTED' || 
-          inv.status === 'INTERNAL_VALIDATION' || 
-          inv.status === 'AWAITING_PAYMENT'
-        )
-        
-        return {
-          region: 'TARAKAN',
-          totalInvoices: tarakanInvoices.length,
-          settledInvoices: settled.length,
-          pendingInvoices: pending.length,
-          totalAmount: tarakanInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
-          settledAmount: settled.reduce((sum, inv) => sum + (inv.settlementAmount || inv.totalAmount), 0),
-          pendingAmount: pending.reduce((sum, inv) => sum + inv.totalAmount, 0),
-        }
-      })(),
+      {
+        region: 'TARAKAN',
+        totalInvoices: invoices?.filter(inv => inv.work_region === 'TARAKAN').length || 0,
+        settledInvoices: invoices?.filter(inv => inv.work_region === 'TARAKAN' && inv.status === 'SETTLED').length || 0,
+        pendingInvoices: invoices?.filter(inv => 
+          inv.work_region === 'TARAKAN' && (
+            inv.status === 'SUBMITTED' || 
+            inv.status === 'INTERNAL_VALIDATION' || 
+            inv.status === 'AWAITING_PAYMENT'
+          )
+        ).length || 0,
+        totalAmount: invoices?.filter(inv => inv.work_region === 'TARAKAN')
+          .reduce((sum, inv) => sum + inv.total_amount, 0) || 0,
+        settledAmount: invoices?.filter(inv => inv.work_region === 'TARAKAN' && inv.status === 'SETTLED')
+          .reduce((sum, inv) => sum + (inv.settlement_amount || inv.total_amount), 0) || 0,
+        pendingAmount: invoices?.filter(inv => 
+          inv.work_region === 'TARAKAN' && (
+            inv.status === 'SUBMITTED' || 
+            inv.status === 'INTERNAL_VALIDATION' || 
+            inv.status === 'AWAITING_PAYMENT'
+          )
+        ).reduce((sum, inv) => sum + inv.total_amount, 0) || 0,
+      },
       
       // BALIKPAPAN
-      (() => {
-        const balikpapanInvoices = invoices.filter(inv => inv.workRegion === 'BALIKPAPAN')
-        const settled = balikpapanInvoices.filter(inv => inv.status === 'SETTLED')
-        const pending = balikpapanInvoices.filter(inv => 
-          inv.status === 'SUBMITTED' || 
-          inv.status === 'INTERNAL_VALIDATION' || 
-          inv.status === 'AWAITING_PAYMENT'
-        )
-        
-        return {
-          region: 'BALIKPAPAN',
-          totalInvoices: balikpapanInvoices.length,
-          settledInvoices: settled.length,
-          pendingInvoices: pending.length,
-          totalAmount: balikpapanInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
-          settledAmount: settled.reduce((sum, inv) => sum + (inv.settlementAmount || inv.totalAmount), 0),
-          pendingAmount: pending.reduce((sum, inv) => sum + inv.totalAmount, 0),
-        }
-      })(),
+      {
+        region: 'BALIKPAPAN',
+        totalInvoices: invoices?.filter(inv => inv.work_region === 'BALIKPAPAN').length || 0,
+        settledInvoices: invoices?.filter(inv => inv.work_region === 'BALIKPAPAN' && inv.status === 'SETTLED').length || 0,
+        pendingInvoices: invoices?.filter(inv => 
+          inv.work_region === 'BALIKPAPAN' && (
+            inv.status === 'SUBMITTED' || 
+            inv.status === 'INTERNAL_VALIDATION' || 
+            inv.status === 'AWAITING_PAYMENT'
+          )
+        ).length || 0,
+        totalAmount: invoices?.filter(inv => inv.work_region === 'BALIKPAPAN')
+          .reduce((sum, inv) => sum + inv.total_amount, 0) || 0,
+        settledAmount: invoices?.filter(inv => inv.work_region === 'BALIKPAPAN' && inv.status === 'SETTLED')
+          .reduce((sum, inv) => sum + (inv.settlement_amount || inv.total_amount), 0) || 0,
+        pendingAmount: invoices?.filter(inv => 
+          inv.work_region === 'BALIKPAPAN' && (
+            inv.status === 'SUBMITTED' || 
+            inv.status === 'INTERNAL_VALIDATION' || 
+            inv.status === 'AWAITING_PAYMENT'
+          )
+        ).reduce((sum, inv) => sum + inv.total_amount, 0) || 0,
+      },
       
       // SAMARINDA
-      (() => {
-        const samarindaInvoices = invoices.filter(inv => inv.workRegion === 'SAMARINDA')
-        const settled = samarindaInvoices.filter(inv => inv.status === 'SETTLED')
-        const pending = samarindaInvoices.filter(inv => 
-          inv.status === 'SUBMITTED' || 
-          inv.status === 'INTERNAL_VALIDATION' || 
-          inv.status === 'AWAITING_PAYMENT'
-        )
-        
-        return {
-          region: 'SAMARINDA',
-          totalInvoices: samarindaInvoices.length,
-          settledInvoices: settled.length,
-          pendingInvoices: pending.length,
-          totalAmount: samarindaInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
-          settledAmount: settled.reduce((sum, inv) => sum + (inv.settlementAmount || inv.totalAmount), 0),
-          pendingAmount: pending.reduce((sum, inv) => sum + inv.totalAmount, 0),
-        }
-      })(),
-    ])
+      {
+        region: 'SAMARINDA',
+        totalInvoices: invoices?.filter(inv => inv.work_region === 'SAMARINDA').length || 0,
+        settledInvoices: invoices?.filter(inv => inv.work_region === 'SAMARINDA' && inv.status === 'SETTLED').length || 0,
+        pendingInvoices: invoices?.filter(inv => 
+          inv.work_region === 'SAMARINDA' && (
+            inv.status === 'SUBMITTED' || 
+            inv.status === 'INTERNAL_VALIDATION' || 
+            inv.status === 'AWAITING_PAYMENT'
+          )
+        ).length || 0,
+        totalAmount: invoices?.filter(inv => inv.work_region === 'SAMARINDA')
+          .reduce((sum, inv) => sum + inv.total_amount, 0) || 0,
+        settledAmount: invoices?.filter(inv => inv.work_region === 'SAMARINDA' && inv.status === 'SETTLED')
+          .reduce((sum, inv) => sum + (inv.settlement_amount || inv.total_amount), 0) || 0,
+        pendingAmount: invoices?.filter(inv => 
+          inv.work_region === 'SAMARINDA' && (
+            inv.status === 'SUBMITTED' || 
+            inv.status === 'INTERNAL_VALIDATION' || 
+            inv.status === 'AWAITING_PAYMENT'
+          )
+        ).reduce((sum, inv) => sum + inv.total_amount, 0) || 0,
+      },
+    ]
 
     return NextResponse.json({
       ...analyticsData,

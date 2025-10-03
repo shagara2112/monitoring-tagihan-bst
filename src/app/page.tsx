@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarIcon, DollarSign, FileText, AlertCircle, TrendingUp, Users, Clock, Download, LogOut, User } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ChevronLeft, ChevronRight, CalendarIcon, DollarSign, FileText, AlertCircle, TrendingUp, Users, Clock, Download, LogOut, User, Search, Filter, RefreshCw, Trash2, Edit, Eye } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { CreateInvoiceButton } from '@/components/invoice-form'
@@ -20,7 +21,10 @@ import { ProtectedRoute } from '@/components/auth/protected-route'
 import { useAuth } from '@/contexts/auth-context'
 import { UserManagement } from '@/components/admin/user-management'
 import { DatabaseBackup } from '@/components/admin/database-backup'
-import { isSuperAdmin, isAdmin, isManagerOrAdmin } from '@/lib/auth'
+import { isSuperAdmin, isAdmin, isManagerOrAdmin } from '@/lib/auth-client'
+import { useToast } from '@/hooks/use-toast-custom'
+import { useDebounce } from '@/hooks/use-debounce'
+import { ToastProvider } from '@/components/ui/toast-custom'
 
 interface Invoice {
   id: string
@@ -111,10 +115,12 @@ const workRegionLabels = {
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
+  const { toast, toasts, dismiss } = useToast()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const debouncedSearchTerm = useDebounce(searchTerm, 300)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [clientFilter, setClientFilter] = useState<string>('all')
   const [positionFilter, setPositionFilter] = useState<string>('all')
@@ -122,23 +128,58 @@ export default function Dashboard() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [analyticsRefreshTrigger, setAnalyticsRefreshTrigger] = useState(0)
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 25
+  
+  // Bulk actions states
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
+  const [isAllSelected, setIsAllSelected] = useState(false)
+  
+  // Advanced filters
+  const [dateRange, setDateRange] = useState<{ from: Date | null; to: Date | null }>({
+    from: null,
+    to: null
+  })
+  const [amountRange, setAmountRange] = useState<{ min: string; max: string }>({
+    min: '',
+    max: ''
+  })
 
   useEffect(() => {
     fetchInvoices()
   }, [])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchTerm, statusFilter, clientFilter, positionFilter, workRegionFilter, dateRange, amountRange])
+
   const fetchInvoices = async () => {
+    setLoading(true)
     try {
       const response = await fetch('/api/invoices')
       if (response.ok) {
         const data = await response.json()
         setInvoices(data.invoices)
         setStats(data.stats)
-        // Trigger analytics refresh
         setAnalyticsRefreshTrigger(prev => prev + 1)
+        toast({
+          title: 'Data berhasil dimuat',
+          description: `${data.invoices.length} tagihan berhasil dimuat`,
+          variant: 'success',
+          duration: 2000
+        })
+      } else {
+        throw new Error('Failed to fetch invoices')
       }
     } catch (error) {
       console.error('Error fetching invoices:', error)
+      toast({
+        title: 'Error',
+        description: 'Gagal memuat data tagihan',
+        variant: 'destructive'
+      })
     } finally {
       setLoading(false)
     }
@@ -156,6 +197,12 @@ export default function Dashboard() {
     
     return matchesSearch && matchesStatus && matchesClient && matchesPosition && matchesWorkRegion
   })
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex)
 
   const uniqueClients = Array.from(new Set(invoices.map(inv => inv.clientName)))
 
@@ -390,7 +437,12 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle>Daftar Tagihan</CardTitle>
                 <CardDescription>
-                  Menampilkan {filteredInvoices.length} dari {invoices.length} tagihan
+                  Menampilkan {paginatedInvoices.length} dari {filteredInvoices.length} tagihan
+                  {totalPages > 1 && (
+                    <span className="ml-2 text-sm text-gray-500">
+                      (Halaman {currentPage} dari {totalPages})
+                    </span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -411,7 +463,7 @@ export default function Dashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredInvoices.map((invoice) => (
+                      {paginatedInvoices.map((invoice) => (
                         <TableRow 
                           key={invoice.id} 
                           className={isOverdue(invoice.dueDate, invoice.status) ? 'bg-red-50' : ''}
@@ -473,6 +525,67 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      Menampilkan {startIndex + 1} hingga {Math.min(endIndex, filteredInvoices.length)} dari {filteredInvoices.length} tagihan
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNumber
+                          if (totalPages <= 5) {
+                            pageNumber = i + 1
+                          } else if (currentPage <= 3) {
+                            pageNumber = i + 1
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNumber = totalPages - 4 + i
+                          } else {
+                            pageNumber = currentPage - 2 + i
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNumber}
+                              variant={currentPage === pageNumber ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNumber)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {pageNumber}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">

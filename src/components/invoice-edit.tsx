@@ -14,7 +14,7 @@ import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
-import { isSuperAdmin } from '@/lib/auth'
+import { isSuperAdmin } from '@/lib/auth-client'
 
 interface User {
   id: string
