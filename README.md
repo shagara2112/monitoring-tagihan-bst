@@ -1,269 +1,257 @@
-# 📊 Invoice Management System
+# Invoice Management System
 
-Aplikasi manajemen tagihan modern yang dibangun dengan Next.js 15, TypeScript, dan Supabase.
+A comprehensive invoice management system built with Next.js, TypeScript, Prisma, and Supabase for tracking and managing invoices with role-based access control.
 
-## ✨ Features
+## 🚀 Features
 
-### 🎯 Core Features
-- **Invoice Management**: CRUD operations lengkap untuk tagihan
-- **User Authentication**: Login/logout dengan role-based access control
-- **Analytics Dashboard**: Analisis data tagihan per wilayah
-- **Pagination**: 25 items per halaman dengan navigasi yang smooth
-- **Advanced Filtering**: Filter berdasarkan status, klien, posisi, wilayah, tanggal, dan jumlah
-- **Bulk Actions**: Select multiple invoices untuk batch operations
-- **Real-time Updates**: Socket.IO untuk real-time notifications
+- **User Authentication & Authorization**: Role-based access control (SUPER_ADMIN, ADMIN, MANAGER, STAFF)
+- **Invoice Management**: Create, read, update, and delete invoices
+- **Invoice Workflow Tracking**: Track invoice status through approval workflow
+- **Invoice History**: Audit trail for all invoice changes
+- **Regional Support**: Support for different work regions (TARAKAN, BALIKPAPAN, SAMARINDA)
+- **Invoice Categories**: Categorize invoices by work type
+- **Analytics Dashboard**: Comprehensive invoice analytics and reporting
+- **Real-time Updates**: Socket.IO for real-time data updates
+- **Responsive Design**: Mobile-friendly interface
 
-### 🎨 UI/UX Features
-- **Toast Notifications**: Sistem notifikasi yang user-friendly
-- **Debounced Search**: Pencarian yang optimal dengan 300ms delay
-- **Responsive Design**: Mobile-first approach dengan Tailwind CSS
-- **Loading States**: Skeleton loaders dan loading indicators
-- **Dark Mode Support**: Tema gelap/terang (dapat ditambahkan)
-- **Keyboard Shortcuts**: Navigasi dengan keyboard (dapat ditambahkan)
+## 🛠️ Tech Stack
 
-### 🔧 Technical Features
-- **TypeScript**: Type safety penuh
-- **Supabase Integration**: Database dan authentication
-- **API Routes**: RESTful API yang well-structured
-- **Error Boundaries**: Error handling yang robust
-- **Performance Optimization**: Lazy loading dan code splitting
-- **SEO Friendly**: Meta tags dan structured data
-
-## 🛠 Tech Stack
-
-- **Framework**: Next.js 15 dengan App Router
-- **Language**: TypeScript 5
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Prisma ORM
 - **Database**: Supabase (PostgreSQL)
-- **Styling**: Tailwind CSS 4 dengan shadcn/ui
-- **Authentication**: NextAuth.js v4
-- **State Management**: Zustand + React Query
+- **Authentication**: JWT with custom middleware
 - **Real-time**: Socket.IO
-- **Deployment**: Vercel (recommended)
+- **Styling**: Tailwind CSS, Lucide Icons
 
-## 📦 Installation
+## 📋 Prerequisites
 
-### Prerequisites
 - Node.js 18+ 
-- npm atau yarn
-- Akun Supabase
+- npm or yarn
+- Supabase account
+- Git
 
-### Setup Instructions
+## 🚀 Getting Started
 
-1. **Clone Repository**
+### 1. Clone the repository
+
 ```bash
-git clone https://github.com/USERNAME/invoice-management-system.git
-cd invoice-management-system
+git clone https://github.com/shagara2112/Monitoring-Tagihan.git
+cd Monitoring-Tagihan
 ```
 
-2. **Install Dependencies**
+### 2. Install dependencies
+
 ```bash
 npm install
 ```
 
-3. **Environment Variables**
-Buat file `.env.local`:
+### 3. Set up environment variables
+
+Create a `.env.local` file in the root directory:
+
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-DATABASE_URL=your_database_url
+# Database Configuration
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT.supabase.co:5432/postgres"
+
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="YOUR_ANON_KEY"
+SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY"
+
+# JWT Secret
+JWT_SECRET="YOUR_JWT_SECRET"
+NEXTAUTH_SECRET="YOUR_NEXTAUTH_SECRET"
+NEXTAUTH_URL="http://localhost:3000"
+
+# Application Configuration
+NODE_ENV="development"
 ```
 
-4. **Database Setup**
+### 4. Set up the database
+
 ```bash
-# Push schema ke database
-npm run db:push
+# Generate Prisma client
+npx prisma generate
 
-# Seed data (opsional)
-npm run db:seed
+# Push schema to database
+npx prisma db push
 ```
 
-5. **Run Development Server**
+### 5. Create a super admin user
+
+```bash
+# Run the create user script
+node create-user.js
+```
+
+### 6. Start the development server
+
 ```bash
 npm run dev
 ```
 
-Buka [http://localhost:3000](http://localhost:3000) di browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## 🏗 Project Structure
+## 📊 Database Schema
+
+The application uses the following main tables:
+
+- **User**: Stores user information and roles
+- **Invoice**: Stores invoice information and status
+- **InvoiceHistory**: Tracks changes to invoices
+
+### User Roles
+
+- **SUPER_ADMIN**: Full access to all features
+- **ADMIN**: Can manage users and invoices
+- **MANAGER**: Can manage invoices and view analytics
+- **STAFF**: Can create and manage own invoices
+
+### Invoice Status Workflow
+
+1. **DRAFT** → Initial state
+2. **SUBMITTED** → Submitted for review
+3. **INTERNAL_VALIDATION** → Under internal review
+4. **AWAITING_PAYMENT** → Approved, awaiting payment
+5. **SETTLED** → Payment completed
+6. **DELAYED** → Payment overdue
+
+### Invoice Positions
+
+- **MITRA** → Partner level
+- **USER** → User level
+- **AREA** → Area level
+- **REGIONAL** → Regional level
+- **HEAD_OFFICE** → Head office level
+- **APM** → APM level
+- **TERBAYAR** → Paid
+
+## 🔐 Authentication
+
+The application uses JWT-based authentication with the following default credentials:
 
 ```
-src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   ├── page.tsx           # Dashboard utama
-│   └── layout.tsx         # Root layout
-├── components/            # React components
-│   ├── ui/               # shadcn/ui components
-│   ├── auth/             # Authentication components
-│   ├── admin/            # Admin components
-│   └── invoice-*.tsx     # Invoice components
-├── contexts/             # React contexts
-├── hooks/                # Custom hooks
-├── lib/                  # Utility libraries
-└── types/                # TypeScript types
+👑 Super Admin:
+Email: superadmin@monitoring.com
+Password: superadmin123
 ```
 
-## 👥 User Roles
+## 📱 API Endpoints
 
-### SUPER_ADMIN
-- Akses penuh ke semua fitur
-- Manajemen user
-- Backup database
-- Analytics lengkap
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/me` - Get current user
 
-### ADMIN
-- Manajemen invoice
-- Analytics
-- Export data
+### Users
+- `GET /api/users` - Get all users (admin only)
+- `POST /api/users` - Create user (admin only)
 
-### MANAGER
-- View dan edit invoice
-- Analytics dasar
-- Export terbatas
+### Invoices
+- `GET /api/invoices` - Get all invoices
+- `POST /api/invoices` - Create invoice
+- `GET /api/invoices/[id]` - Get invoice by ID
+- `PUT /api/invoices/[id]` - Update invoice
+- `DELETE /api/invoices/[id]` - Delete invoice
+- `GET /api/invoices/[id]/history` - Get invoice history
+- `GET /api/invoices/analytics` - Get invoice analytics
+- `GET /api/invoices/export` - Export invoices
 
-### STAFF
-- Create invoice
-- View invoice sendiri
-- Edit terbatas
+## 🌐 Deployment
 
-## 📊 Analytics Features
+### Deploy to Vercel
 
-### Dashboard Metrics
-- Total tagihan dan jumlah
-- Tagihan lunas vs pending
-- Overdue invoices tracking
-- Regional breakdown
+1. Connect your repository to Vercel
+2. Add environment variables in Vercel dashboard
+3. Deploy the application
 
-### Visualizations
-- Progress bars untuk completion rate
-- Bar charts untuk regional comparison
-- Color-coded status indicators
-- Responsive grid layouts
+### Environment Variables for Production
 
-## 🔐 Security Features
-
-- JWT-based authentication
-- Role-based access control (RBAC)
-- Input validation dan sanitization
-- SQL injection prevention
-- XSS protection
-- CSRF protection
-
-## 🚀 Performance Optimizations
-
-- Code splitting dengan Next.js
-- Image optimization
-- Debounced search (300ms)
-- Pagination untuk large datasets
-- Lazy loading components
-- Database query optimization
-- Caching strategies
-
-## 📱 Responsive Design
-
-- Mobile-first approach
-- Touch-friendly interfaces
-- Adaptive layouts
-- Optimized for all screen sizes
-- Progressive enhancement
-
-## 🔄 Real-time Features
-
-- Socket.IO integration
-- Live updates untuk invoice status
-- Real-time notifications
-- Collaborative editing (future)
-
-## 📤 Export Features
-
-- CSV export untuk invoices
-- Filtered data export
-- Backup database functionality
-- Custom date range exports
+```env
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT.supabase.co:5432/postgres"
+NEXT_PUBLIC_SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="YOUR_ANON_KEY"
+SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY"
+JWT_SECRET="YOUR_JWT_SECRET"
+NEXTAUTH_SECRET="YOUR_NEXTAUTH_SECRET"
+NEXTAUTH_URL="https://your-app.vercel.app"
+NODE_ENV="production"
+```
 
 ## 🧪 Testing
 
-```bash
-# Run unit tests
-npm run test
+The project includes several test scripts:
 
-# Run integration tests
-npm run test:integration
+- `node check-connection.js` - Check database connection
+- `node show-prisma-schema.js` - Display database schema
+- `node test-supabase-input.js` - Test data input to Supabase
 
-# Run E2E tests
-npm run test:e2e
+## 📈 Analytics
 
-# Test coverage
-npm run test:coverage
+The system provides comprehensive analytics including:
+
+- Invoice status distribution
+- Invoice position breakdown
+- Regional performance metrics
+- Payment status tracking
+- Monthly revenue analysis
+
+## 🔧 Customization
+
+### Adding New Invoice Categories
+
+Edit `prisma/schema.prisma`:
+
+```prisma
+enum InvoiceCategory {
+  PASANG_BARU
+  ASSURANCE
+  MAINTENANCE
+  OSP
+  SIPIL
+  KONSTRUKSI
+  LAINNYA
+  NEW_CATEGORY
+}
 ```
 
-## 🚀 Deployment
+### Adding New Work Regions
 
-### Vercel (Recommended)
-1. Hubungkan repository GitHub ke Vercel
-2. Setup environment variables
-3. Deploy otomatis pada setiap push ke main
+Edit `prisma/schema.prisma`:
 
-### Manual Deployment
-```bash
-# Build untuk production
-npm run build
-
-# Start production server
-npm start
+```prisma
+enum WorkRegion {
+  TARAKAN
+  BALIKPAPAN
+  SAMARINDA
+  NEW_REGION
+}
 ```
-
-## 📝 API Documentation
-
-### Endpoints
-- `GET /api/invoices` - List invoices
-- `POST /api/invoices` - Create invoice
-- `PUT /api/invoices/[id]` - Update invoice
-- `DELETE /api/invoices/[id]` - Delete invoice
-- `GET /api/invoices/analytics` - Analytics data
-- `GET /api/users` - User management
-- `POST /api/auth/login` - Authentication
 
 ## 🤝 Contributing
 
-1. Fork repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push ke branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 📄 License
+## 📝 License
 
-MIT License - lihat file [LICENSE](LICENSE) untuk detail.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-Jika ada pertanyaan atau issues:
-- Create GitHub Issue
-- Email: support@example.com
-- Documentation: [Link ke docs]
+If you encounter any issues or have questions, please:
 
-## 🎯 Roadmap
+1. Check the [Issues](https://github.com/shagara2112/Monitoring-Tagihan/issues) page
+2. Create a new issue if needed
+3. Include detailed information about the problem
 
-### Phase 1 (Current)
-- ✅ Basic CRUD operations
-- ✅ User authentication
-- ✅ Analytics dashboard
-- ✅ Pagination dan filtering
+## 🔄 Updates
 
-### Phase 2 (Next)
-- 🔄 Advanced analytics dengan charts
-- 🔄 Email notifications
-- 🔄 Invoice templates
-- 🔄 Multi-currency support
-
-### Phase 3 (Future)
-- 📋 Mobile app (React Native)
-- 📋 Payment gateway integration
-- 📋 Advanced reporting
-- 📋 API untuk third-party integrations
-
----
-
-🤖 **Generated with [Claude Code](https://claude.ai/code)**
+- v1.0.0 - Initial release with basic invoice management
+- v1.1.0 - Added analytics dashboard
+- v1.2.0 - Added real-time updates with Socket.IO
+- v1.3.0 - Added Supabase integration
+- v1.4.0 - Enhanced invoice workflow and history tracking

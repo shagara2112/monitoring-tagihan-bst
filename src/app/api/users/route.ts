@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-client';
+import { db } from '@/lib/db';
 import { verifyAuth, isSuperAdmin } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
@@ -15,29 +15,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
-
-    // Get users with invoice count
-    const { data: users, error } = await supabase
-      .from('users')
-      .select(`
-        id,
-        email,
-        name,
-        role,
-        created_at,
-        updated_at,
-        invoices:invoices(count)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching users:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch users' },
-        { status: 500 }
-      );
-    }
+    // Get users with invoice count using Prisma
+    const users = await db.user.findMany({
+      include: {
+        _count: {
+          select: {
+            invoices: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
 
     // Transform data to match expected format
     const transformedUsers = users.map(user => ({
@@ -45,10 +35,10 @@ export async function GET(request: NextRequest) {
       email: user.email,
       name: user.name,
       role: user.role,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
       _count: {
-        invoices: user.invoices?.length || 0,
+        invoices: user._count.invoices,
       },
     }));
 
@@ -93,14 +83,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
-
     // Check if user already exists
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single();
+    const existingUser = await db.user.findUnique({
+      where: { email }
+    });
 
     if (existingUser) {
       return NextResponse.json(
@@ -113,36 +99,24 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const { data: newUser, error } = await supabase
-      .from('users')
-      .insert({
+    const newUser = await db.user.create({
+      data: {
         email,
         password: hashedPassword,
         name: name || null,
         role,
-      })
-      .select('id, email, name, role, created_at, updated_at')
-      .single();
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      }
+    });
 
-    if (error) {
-      console.error('Error creating user:', error);
-      return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 500 }
-      );
-    }
-
-    // Transform to match expected format
-    const transformedUser = {
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name,
-      role: newUser.role,
-      createdAt: newUser.created_at,
-      updatedAt: newUser.updated_at,
-    };
-
-    return NextResponse.json(transformedUser, { status: 201 });
+    return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json(

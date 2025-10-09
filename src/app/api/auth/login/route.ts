@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase-client';
+import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -16,17 +16,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use Supabase client instead of Prisma
-    const supabase = createServerSupabaseClient();
-    
-    // Find user by email
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
+    // Find user by email using Prisma
+    const user = await db.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
 
-    if (error || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }

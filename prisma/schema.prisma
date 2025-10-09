@@ -30,9 +30,12 @@ model Invoice {
   status            InvoiceStatus   @default(DRAFT)
   position          InvoicePosition @default(MITRA)
   workRegion        WorkRegion      @default(TARAKAN)
-  notes             String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  jobTitle        String?
+  workPeriod      String?
+  category        InvoiceCategory?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   settlementDate    DateTime?
   settlementAmount  Float?
   paymentMethod     String?
@@ -41,6 +44,7 @@ model Invoice {
   positionUpdatedBy String?
   createdById       String
   createdBy         User            @relation(fields: [createdById], references: [id])
+  histories         InvoiceHistory[]
 
   @@index([status])
   @@index([position])
@@ -48,6 +52,23 @@ model Invoice {
   @@index([clientName])
   @@index([dueDate])
   @@index([issueDate])
+}
+
+model InvoiceHistory {
+  id        String   @id @default(cuid())
+  invoiceId String
+  field     String   // 'status' or 'position'
+  oldValue  String?
+  newValue  String
+  changedBy String
+  changedAt DateTime @default(now())
+  notes     String?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([field])
+  @@index([changedAt])
 }
 
 enum UserRole {
@@ -80,4 +101,14 @@ enum WorkRegion {
   TARAKAN
   BALIKPAPAN
   SAMARINDA
+}
+
+enum InvoiceCategory {
+  PASANG_BARU
+  ASSURANCE
+  MAINTENANCE
+  OSP
+  SIPIL
+  KONSTRUKSI
+  LAINNYA
 }

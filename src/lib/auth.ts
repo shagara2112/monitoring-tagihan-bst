@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { createServerSupabaseClient } from '@/lib/supabase-client';
+import { db } from '@/lib/db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -8,7 +8,7 @@ export interface AuthUser {
   id: string;
   email: string;
   role: string;
-  name?: string;
+  name?: string | null;
 }
 
 export async function verifyAuth(request: NextRequest): Promise<AuthUser | null> {
@@ -25,19 +25,29 @@ export async function verifyAuth(request: NextRequest): Promise<AuthUser | null>
       role: string;
     };
 
-    // Get user from Supabase to ensure they still exist
-    const supabase = createServerSupabaseClient();
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, email, name, role')
-      .eq('id', decoded.userId)
-      .single();
+    // Get user from Prisma to ensure they still exist
+    const user = await db.user.findUnique({
+      where: {
+        id: decoded.userId,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+      },
+    });
 
-    if (error || !user) {
+    if (!user) {
       return null;
     }
 
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    };
   } catch (error) {
     console.error('Auth verification error:', error);
     return null;

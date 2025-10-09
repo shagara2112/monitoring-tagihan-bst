@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
-import { CalendarIcon, DollarSign, CreditCard } from 'lucide-react'
+import { CalendarIcon, DollarSign, CreditCard, Clock, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -27,6 +27,9 @@ interface Invoice {
   status: 'DRAFT' | 'SUBMITTED' | 'INTERNAL_VALIDATION' | 'AWAITING_PAYMENT' | 'SETTLED' | 'DELAYED'
   position: 'MITRA' | 'USER' | 'AREA' | 'REGIONAL' | 'HEAD_OFFICE' | 'APM' | 'TERBAYAR'
   workRegion: 'TARAKAN' | 'BALIKPAPAN' | 'SAMARINDA'
+  jobTitle?: string
+  workPeriod?: string
+  category?: string
   notes?: string
   settlementDate?: string
   settlementAmount?: number
@@ -275,6 +278,21 @@ export function InvoiceDetail({ invoice, isOpen, onClose, onUpdate }: InvoiceDet
                 </div>
                 
                 <div>
+                  <Label className="text-sm font-medium text-gray-500">Nama Pekerjaan</Label>
+                  <p className="font-medium">{invoice.jobTitle || '-'}</p>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Periode Pekerjaan</Label>
+                  <p className="font-medium">{invoice.workPeriod || '-'}</p>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Kategori Tagihan</Label>
+                  <p className="font-medium">{invoice.category || '-'}</p>
+                </div>
+                
+                <div>
                   <Label className="text-sm font-medium text-gray-500">Catatan</Label>
                   <p className="text-sm">{invoice.notes || '-'}</p>
                 </div>
@@ -392,6 +410,7 @@ export function InvoiceDetail({ invoice, isOpen, onClose, onUpdate }: InvoiceDet
                   </Select>
                 </div>
 
+
                 <div className="space-y-2">
                   <Label htmlFor="notes">Catatan Status</Label>
                   <Textarea
@@ -504,6 +523,19 @@ export function InvoiceDetail({ invoice, isOpen, onClose, onUpdate }: InvoiceDet
                 </div>
               )}
             </div>
+          </div>
+
+          {/* History Button */}
+          <div className="border-t pt-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => window.open(`/invoices/${invoice.id}`, '_blank')}
+            >
+              <Clock className="mr-2 h-4 w-4" />
+              Lihat Riwayat Lengkap
+              <ExternalLink className="ml-2 h-4 w-4" />
+            </Button>
           </div>
         </div>
       </DialogContent>

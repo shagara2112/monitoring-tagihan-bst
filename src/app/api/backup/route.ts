@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get database path from environment or use default
-    const dbPath = process.env.DATABASE_URL?.replace('file:', '') || 'db/custom.db';
+    const dbPath = process.env.DATABASE_URL?.replace('file:', '') || 'prisma/dev.db';
     const sourceDbPath = path.isAbsolute(dbPath) ? dbPath : path.join(process.cwd(), dbPath);
 
     // Copy database file

@@ -38,6 +38,8 @@ interface Invoice {
   status: 'DRAFT' | 'SUBMITTED' | 'INTERNAL_VALIDATION' | 'AWAITING_PAYMENT' | 'SETTLED' | 'DELAYED'
   position: 'MITRA' | 'USER' | 'AREA' | 'REGIONAL' | 'HEAD_OFFICE' | 'APM' | 'TERBAYAR'
   workRegion: 'TARAKAN' | 'BALIKPAPAN' | 'SAMARINDA'
+  jobTitle?: string
+  workPeriod?: string
   notes?: string
   settlementDate?: string
   settlementAmount?: number
@@ -45,6 +47,7 @@ interface Invoice {
   settlementNotes?: string
   positionUpdatedAt?: string
   positionUpdatedBy?: string
+  createdById: string
   createdBy?: {
     id: string
     name: string
@@ -131,7 +134,7 @@ export default function Dashboard() {
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 25
+  const itemsPerPage = 50
   
   // Bulk actions states
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
@@ -188,7 +191,9 @@ export default function Dashboard() {
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.description.toLowerCase().includes(searchTerm.toLowerCase())
+                         invoice.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (invoice.jobTitle && invoice.jobTitle.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (invoice.workPeriod && invoice.workPeriod.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter
     const matchesClient = clientFilter === 'all' || invoice.clientName === clientFilter
@@ -347,13 +352,13 @@ export default function Dashboard() {
         <Tabs defaultValue="invoices" className="space-y-6">
           <TabsList>
             <TabsTrigger value="invoices">Daftar Tagihan</TabsTrigger>
-            {(isManagerOrAdmin(user)) && (
+            {(isManagerOrAdmin(user as any)) && (
               <TabsTrigger value="analytics">Analitik</TabsTrigger>
             )}
-            {isSuperAdmin(user) && (
+            {isSuperAdmin(user as any) && (
               <TabsTrigger value="users">Manajemen User</TabsTrigger>
             )}
-            {isSuperAdmin(user) && (
+            {isSuperAdmin(user as any) && (
               <TabsTrigger value="backup">Backup Database</TabsTrigger>
             )}
           </TabsList>
@@ -452,13 +457,15 @@ export default function Dashboard() {
                       <TableRow>
                         <TableHead>No. Tagihan</TableHead>
                         <TableHead>Klien</TableHead>
+                        <TableHead>Nama Pekerjaan</TableHead>
+                        <TableHead>Periode Pekerjaan</TableHead>
                         <TableHead>Tanggal Terbit</TableHead>
                         <TableHead>Jatuh Tempo</TableHead>
                         <TableHead>Jumlah</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Posisi</TableHead>
                         <TableHead>Wilayah</TableHead>
-                        {isManagerOrAdmin(user) && <TableHead>Diinput Oleh</TableHead>}
+                        {isManagerOrAdmin(user as any) && <TableHead>Diinput Oleh</TableHead>}
                         <TableHead>Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -470,6 +477,8 @@ export default function Dashboard() {
                         >
                           <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                           <TableCell>{invoice.clientName}</TableCell>
+                          <TableCell className="max-w-xs truncate">{invoice.jobTitle || '-'}</TableCell>
+                          <TableCell className="max-w-xs truncate">{invoice.workPeriod || '-'}</TableCell>
                           <TableCell>
                             {format(new Date(invoice.issueDate), 'dd MMM yyyy', { locale: id })}
                           </TableCell>
@@ -497,7 +506,7 @@ export default function Dashboard() {
                               {workRegionLabels[invoice.workRegion]}
                             </Badge>
                           </TableCell>
-                          {isManagerOrAdmin(user) && (
+                          {isManagerOrAdmin(user as any) && (
                             <TableCell>
                               <div className="text-sm">
                                 <div className="font-medium text-gray-900">
@@ -593,7 +602,7 @@ export default function Dashboard() {
           </TabsContent>
 
           {/* User Management Tab - Super Admin Only */}
-          {isSuperAdmin(user) && (
+          {isSuperAdmin(user as any) && (
             <TabsContent value="users" className="space-y-6">
               <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
                 <UserManagement />
@@ -602,7 +611,7 @@ export default function Dashboard() {
           )}
 
           {/* Database Backup Tab - Super Admin Only */}
-          {isSuperAdmin(user) && (
+          {isSuperAdmin(user as any) && (
             <TabsContent value="backup" className="space-y-6">
               <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
                 <DatabaseBackup />

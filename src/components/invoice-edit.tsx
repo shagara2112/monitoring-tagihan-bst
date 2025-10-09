@@ -35,6 +35,9 @@ interface Invoice {
   status: 'DRAFT' | 'SUBMITTED' | 'INTERNAL_VALIDATION' | 'AWAITING_PAYMENT' | 'SETTLED' | 'DELAYED'
   position: 'MITRA' | 'USER' | 'AREA' | 'REGIONAL' | 'HEAD_OFFICE' | 'APM' | 'TERBAYAR'
   workRegion: 'TARAKAN' | 'BALIKPAPAN' | 'SAMARINDA'
+  jobTitle?: string
+  workPeriod?: string
+  category?: string
   notes?: string
   createdById: string
   createdBy?: {
@@ -66,19 +69,29 @@ export function InvoiceEdit({ invoice, isOpen, onClose, onSuccess }: InvoiceEdit
     status: 'DRAFT',
     position: 'MITRA',
     workRegion: 'TARAKAN',
+    jobTitle: '',
+    workPeriod: '',
+    category: '',
+    customCategory: '',
     notes: '',
     createdById: '',
   })
 
   useEffect(() => {
     // Only fetch users if super admin
-    if (isSuperAdmin(user)) {
+    if (isSuperAdmin(user as any)) {
       fetchUsers()
     }
   }, [user])
 
   useEffect(() => {
     if (invoice) {
+      // Check if category is a predefined category or custom
+      const predefinedCategories = ['PASANG_BARU', 'ASSURANCE', 'MAINTENANCE', 'OSP', 'SIPIL', 'KONSTRUKSI'];
+      const isPredefinedCategory = invoice.category && predefinedCategories.includes(invoice.category);
+      const categoryValue = isPredefinedCategory ? invoice.category || '' : 'LAINNYA';
+      const customCategoryValue = isPredefinedCategory ? '' : (invoice.category || '');
+      
       setFormData({
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.clientName,
@@ -90,6 +103,10 @@ export function InvoiceEdit({ invoice, isOpen, onClose, onSuccess }: InvoiceEdit
         status: invoice.status,
         position: invoice.position,
         workRegion: invoice.workRegion,
+        jobTitle: invoice.jobTitle || '',
+        workPeriod: invoice.workPeriod || '',
+        category: categoryValue,
+        customCategory: customCategoryValue,
         notes: invoice.notes || '',
         createdById: invoice.createdById,
       })
@@ -115,6 +132,9 @@ export function InvoiceEdit({ invoice, isOpen, onClose, onSuccess }: InvoiceEdit
     setLoading(true)
 
     try {
+      // Determine the actual category value
+      const actualCategory = formData.category === 'LAINNYA' ? formData.customCategory : formData.category;
+      
       const response = await fetch(`/api/invoices/${invoice.id}`, {
         method: 'PUT',
         headers: {
@@ -122,6 +142,7 @@ export function InvoiceEdit({ invoice, isOpen, onClose, onSuccess }: InvoiceEdit
         },
         body: JSON.stringify({
           ...formData,
+          category: actualCategory,
           issueDate: formData.issueDate.toISOString(),
           dueDate: formData.dueDate.toISOString(),
           totalAmount: parseFloat(formData.totalAmount),
@@ -313,7 +334,60 @@ export function InvoiceEdit({ invoice, isOpen, onClose, onSuccess }: InvoiceEdit
               </Select>
             </div>
 
-            {isSuperAdmin(user) ? (
+            <div className="space-y-2">
+              <Label htmlFor="jobTitle">Nama Pekerjaan</Label>
+              <Input
+                id="jobTitle"
+                value={formData.jobTitle}
+                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                placeholder="Nama pekerjaan atau proyek"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="workPeriod">Periode Pekerjaan</Label>
+              <Input
+                id="workPeriod"
+                value={formData.workPeriod}
+                onChange={(e) => setFormData({ ...formData, workPeriod: e.target.value })}
+                placeholder="Contoh: Januari 2024, Q1 2024, dll"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Kategori Tagihan</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData({ ...formData, category: value, customCategory: value === 'LAINNYA' ? '' : formData.customCategory })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PASANG_BARU">Pasang Baru</SelectItem>
+                  <SelectItem value="ASSURANCE">Assurance</SelectItem>
+                  <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                  <SelectItem value="OSP">OSP</SelectItem>
+                  <SelectItem value="SIPIL">Sipil</SelectItem>
+                  <SelectItem value="KONSTRUKSI">Konstruksi</SelectItem>
+                  <SelectItem value="LAINNYA">Lainnya</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.category === 'LAINNYA' && (
+              <div className="space-y-2">
+                <Label htmlFor="customCategory">Kategori Kustom</Label>
+                <Input
+                  id="customCategory"
+                  value={formData.customCategory}
+                  onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })}
+                  placeholder="Masukkan kategori kustom"
+                />
+              </div>
+            )}
+
+            {isSuperAdmin(user as any) ? (
               <div className="space-y-2">
                 <Label htmlFor="createdById">Dibuat Oleh</Label>
                 <Select value={formData.createdById} onValueChange={(value) => setFormData({ ...formData, createdById: value })}>

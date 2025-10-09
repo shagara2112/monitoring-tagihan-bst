@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-client'
+import { db } from '@/lib/db'
 import { verifyAuth, isManagerOrAdmin } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -13,56 +13,48 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = createServerSupabaseClient()
-    
-    // Fetch invoices with creator information
-    const { data: invoices, error } = await supabase
-      .from('invoices')
-      .select(`
-        *,
-        created_by:users!invoices_created_by_id_fkey (
-          id,
-          name,
-          email
-        )
-      `)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching invoices:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch invoices' },
-        { status: 500 }
-      )
-    }
+    // Fetch invoices with creator information using Prisma
+    const invoices = await db.invoice.findMany({
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
 
     // Transform the data to match the expected format
     const transformedInvoices = invoices.map(inv => ({
       id: inv.id,
-      invoiceNumber: inv.invoice_number,
-      clientName: inv.client_name,
-      issueDate: inv.issue_date,
-      dueDate: inv.due_date,
-      totalAmount: inv.total_amount,
+      invoiceNumber: inv.invoiceNumber,
+      clientName: inv.clientName,
+      issueDate: inv.issueDate.toISOString(),
+      dueDate: inv.dueDate.toISOString(),
+      totalAmount: inv.totalAmount,
       currency: inv.currency,
       description: inv.description,
       status: inv.status,
       position: inv.position || 'MITRA',
-      workRegion: inv.work_region || 'TARAKAN',
+      workRegion: inv.workRegion || 'TARAKAN',
+      jobTitle: (inv as any).jobTitle,
+      workPeriod: (inv as any).workPeriod,
+      category: (inv as any).category,
       notes: inv.notes,
-      settlementDate: inv.settlement_date,
-      settlementAmount: inv.settlement_amount,
-      paymentMethod: inv.payment_method,
-      settlementNotes: inv.settlement_notes,
-      positionUpdatedAt: inv.position_updated_at,
-      positionUpdatedBy: inv.position_updated_by,
-      createdAt: inv.created_at,
-      updatedAt: inv.updated_at,
-      createdBy: inv.created_by ? {
-        id: inv.created_by.id,
-        name: inv.created_by.name,
-        email: inv.created_by.email,
-      } : null,
+      settlementDate: inv.settlementDate?.toISOString(),
+      settlementAmount: inv.settlementAmount,
+      paymentMethod: inv.paymentMethod,
+      settlementNotes: inv.settlementNotes,
+      positionUpdatedAt: inv.positionUpdatedAt?.toISOString(),
+      positionUpdatedBy: inv.positionUpdatedBy,
+      createdAt: inv.createdAt.toISOString(),
+      updatedAt: inv.updatedAt.toISOString(),
+      createdBy: inv.createdBy,
     }))
 
     // Calculate statistics
@@ -134,6 +126,9 @@ export async function POST(request: NextRequest) {
       status = 'DRAFT',
       position = 'MITRA',
       workRegion = 'TARAKAN',
+      jobTitle,
+      workPeriod,
+      category,
       notes,
     } = body
 
@@ -145,14 +140,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServerSupabaseClient()
-
-    // Check if invoice number already exists
-    const { data: existingInvoice } = await supabase
-      .from('invoices')
-      .select('id')
-      .eq('invoice_number', invoiceNumber)
-      .single()
+    // Check if invoice number already exists using Prisma
+    const existingInvoice = await db.invoice.findUnique({
+      where: {
+        invoiceNumber: invoiceNumber,
+      },
+    })
 
     if (existingInvoice) {
       return NextResponse.json(
@@ -161,68 +154,62 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create new invoice
-    const { data: invoice, error } = await supabase
-      .from('invoices')
-      .insert({
-        invoice_number: invoiceNumber,
-        client_name: clientName,
-        issue_date: issueDate,
-        due_date: dueDate,
-        total_amount: parseFloat(totalAmount),
+    // Create new invoice using Prisma
+    const invoice = await db.invoice.create({
+      data: {
+        invoiceNumber,
+        clientName,
+        issueDate: new Date(issueDate),
+        dueDate: new Date(dueDate),
+        totalAmount: parseFloat(totalAmount),
         currency,
         description,
         status,
         position,
-        work_region: workRegion,
+        workRegion,
+        ...(jobTitle && { jobTitle }),
+        ...(workPeriod && { workPeriod }),
+        ...(category && { category }),
         notes,
-        created_by_id: user.id,
-      })
-      .select(`
-        *,
-        created_by:users!invoices_created_by_id_fkey (
-          id,
-          name,
-          email
-        )
-      `)
-      .single()
-
-    if (error) {
-      console.error('Error creating invoice:', error)
-      return NextResponse.json(
-        { error: 'Failed to create invoice' },
-        { status: 500 }
-      )
-    }
+        createdById: user.id,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
 
     // Transform the response to match expected format
     const transformedInvoice = {
       id: invoice.id,
-      invoiceNumber: invoice.invoice_number,
-      clientName: invoice.client_name,
-      issueDate: invoice.issue_date,
-      dueDate: invoice.due_date,
-      totalAmount: invoice.total_amount,
+      invoiceNumber: invoice.invoiceNumber,
+      clientName: invoice.clientName,
+      issueDate: invoice.issueDate.toISOString(),
+      dueDate: invoice.dueDate.toISOString(),
+      totalAmount: invoice.totalAmount,
       currency: invoice.currency,
       description: invoice.description,
       status: invoice.status,
       position: invoice.position,
-      workRegion: invoice.work_region,
+      workRegion: invoice.workRegion,
+      jobTitle: (invoice as any).jobTitle,
+      workPeriod: (invoice as any).workPeriod,
+      category: (invoice as any).category,
       notes: invoice.notes,
-      settlementDate: invoice.settlement_date,
-      settlementAmount: invoice.settlement_amount,
-      paymentMethod: invoice.payment_method,
-      settlementNotes: invoice.settlement_notes,
-      positionUpdatedAt: invoice.position_updated_at,
-      positionUpdatedBy: invoice.position_updated_by,
-      createdAt: invoice.created_at,
-      updatedAt: invoice.updated_at,
-      createdBy: invoice.created_by ? {
-        id: invoice.created_by.id,
-        name: invoice.created_by.name,
-        email: invoice.created_by.email,
-      } : null,
+      settlementDate: invoice.settlementDate?.toISOString(),
+      settlementAmount: invoice.settlementAmount,
+      paymentMethod: invoice.paymentMethod,
+      settlementNotes: invoice.settlementNotes,
+      positionUpdatedAt: invoice.positionUpdatedAt?.toISOString(),
+      positionUpdatedBy: invoice.positionUpdatedBy,
+      createdAt: invoice.createdAt.toISOString(),
+      updatedAt: invoice.updatedAt.toISOString(),
+      createdBy: (invoice as any).createdBy,
     }
 
     return NextResponse.json(transformedInvoice, { status: 201 })

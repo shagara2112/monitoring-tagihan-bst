@@ -5,8 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { BarChart3, TrendingUp, DollarSign, FileText } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, FileText, Calendar, Clock, AlertCircle, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns'
+import { id } from 'date-fns/locale'
 
 interface AnalyticsData {
   totalInvoices: number
@@ -26,6 +29,22 @@ interface AnalyticsData {
     pendingInvoices: number
     pendingAmount: number
   }[]
+  monthlyData?: {
+    month: string
+    totalInvoices: number
+    totalAmount: number
+    settledInvoices: number
+    settledAmount: number
+    settledInThisMonth: number
+    settledInThisMonthAmount: number
+    pendingInvoices: number
+    pendingAmount: number
+  }[]
+  positionData?: {
+    position: string
+    count: number
+    totalAmount: number
+  }[]
 }
 
 const workRegionLabels = {
@@ -40,6 +59,26 @@ const workRegionColors = {
   SAMARINDA: 'bg-purple-100 text-purple-800',
 }
 
+const positionLabels = {
+  MITRA: 'Mitra',
+  USER: 'User',
+  AREA: 'Area',
+  REGIONAL: 'Regional',
+  HEAD_OFFICE: 'Head Office',
+  APM: 'APM',
+  TERBAYAR: 'Terbayar',
+}
+
+const positionColors = {
+  MITRA: 'bg-purple-100 text-purple-800',
+  USER: 'bg-indigo-100 text-indigo-800',
+  AREA: 'bg-cyan-100 text-cyan-800',
+  REGIONAL: 'bg-teal-100 text-teal-800',
+  HEAD_OFFICE: 'bg-emerald-100 text-emerald-800',
+  APM: 'bg-amber-100 text-amber-800',
+  TERBAYAR: 'bg-green-100 text-green-800',
+}
+
 interface InvoiceAnalyticsProps {
   refreshTrigger?: number
 }
@@ -48,6 +87,7 @@ export function InvoiceAnalytics({ refreshTrigger }: InvoiceAnalyticsProps) {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedRegion, setSelectedRegion] = useState<string>('ALL')
+  const [activeTab, setActiveTab] = useState<string>('overview')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -188,8 +228,18 @@ export function InvoiceAnalytics({ refreshTrigger }: InvoiceAnalyticsProps) {
         </div>
       </div>
 
-      {/* Main Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Tabs for different views */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Ringkasan</TabsTrigger>
+          <TabsTrigger value="monthly">Tren Bulanan</TabsTrigger>
+          <TabsTrigger value="regional">Regional</TabsTrigger>
+          <TabsTrigger value="position">Posisi</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview" className="space-y-6">
+          {/* Main Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tagihan</CardTitle>
@@ -281,117 +331,366 @@ export function InvoiceAnalytics({ refreshTrigger }: InvoiceAnalyticsProps) {
       </Card>
 
       {/* Regional Breakdown */}
-      {selectedRegion === 'ALL' && data.regionData && data.regionData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Analisis per Wilayah</CardTitle>
-            <CardDescription>
-              Perbandingan data tagihan antar wilayah kerja
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* Bar Chart Visualization */}
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium text-gray-700">Visualisasi Jumlah Tagihan per Wilayah</h4>
-                <div className="space-y-3">
-                  {data.regionData.map((region) => {
-                    const maxInvoices = Math.max(...data.regionData.map(r => r.totalInvoices))
-                    const percentage = maxInvoices > 0 ? (region.totalInvoices / maxInvoices) * 100 : 0
-                    
-                    return (
-                      <div key={region.region} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
+          {/* Regional Breakdown */}
+          {selectedRegion === 'ALL' && data.regionData && data.regionData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Analisis per Wilayah</CardTitle>
+                <CardDescription>
+                  Perbandingan data tagihan antar wilayah kerja
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Bar Chart Visualization */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-gray-700">Visualisasi Jumlah Tagihan per Wilayah</h4>
+                    <div className="space-y-3">
+                      {data.regionData.map((region) => {
+                        const maxInvoices = Math.max(...data.regionData!.map(r => r.totalInvoices))
+                        const percentage = maxInvoices > 0 ? (region.totalInvoices / maxInvoices) * 100 : 0
+                         
+                        return (
+                          <div key={region.region} className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <Badge className={workRegionColors[region.region as keyof typeof workRegionColors]}>
+                                  {workRegionLabels[region.region as keyof typeof workRegionLabels]}
+                                </Badge>
+                                <span className="text-sm font-medium">{region.totalInvoices} tagihan</span>
+                              </div>
+                              <span className="text-sm text-gray-600">{formatCurrency(region.totalAmount)}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-6 relative overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  region.region === 'TARAKAN' ? 'bg-blue-500' :
+                                  region.region === 'BALIKPAPAN' ? 'bg-green-500' :
+                                  'bg-purple-500'
+                                }`}
+                                style={{ width: `${percentage}%` }}
+                              >
+                                <span className="text-white text-xs font-medium flex items-center justify-center h-full">
+                                  {percentage > 10 && `${percentage.toFixed(0)}%`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Detailed Regional Data */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {data.regionData.map((region) => {
+                      const regionCompletionRate = region.totalInvoices > 0
+                        ? Math.round((region.settledInvoices / region.totalInvoices) * 100)
+                        : 0
+
+                      return (
+                        <div key={region.region} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
                             <Badge className={workRegionColors[region.region as keyof typeof workRegionColors]}>
                               {workRegionLabels[region.region as keyof typeof workRegionLabels]}
                             </Badge>
-                            <span className="text-sm font-medium">{region.totalInvoices} tagihan</span>
                           </div>
-                          <span className="text-sm text-gray-600">{formatCurrency(region.totalAmount)}</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-6 relative overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              region.region === 'TARAKAN' ? 'bg-blue-500' :
-                              region.region === 'BALIKPAPAN' ? 'bg-green-500' :
-                              'bg-purple-500'
-                            }`}
-                            style={{ width: `${percentage}%` }}
-                          >
-                            <span className="text-white text-xs font-medium flex items-center justify-center h-full">
-                              {percentage > 10 && `${percentage.toFixed(0)}%`}
-                            </span>
+                          
+                          <div className="space-y-3">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-gray-900">{region.totalInvoices}</div>
+                              <div className="text-xs text-gray-500">Total Tagihan</div>
+                              <div className="text-lg font-semibold text-blue-600 mt-1">
+                                {formatCurrency(region.totalAmount)}
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-center p-2 bg-green-50 rounded">
+                                <div className="text-green-600 font-bold">{region.settledInvoices}</div>
+                                <div className="text-gray-600 text-xs">Lunas</div>
+                                <div className="text-green-700 text-xs font-medium">
+                                  {formatCurrency(region.settledAmount)}
+                                </div>
+                              </div>
+                              <div className="text-center p-2 bg-orange-50 rounded">
+                                <div className="text-orange-600 font-bold">{region.pendingInvoices}</div>
+                                <div className="text-gray-600 text-xs">Menunggu</div>
+                                <div className="text-orange-700 text-xs font-medium">
+                                  {formatCurrency(region.pendingAmount)}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="pt-2 border-t">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs text-gray-600">Tingkat Lunas</span>
+                                <span className="text-sm font-bold text-green-600">{regionCompletionRate}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${regionCompletionRate}%` }}
+                                ></div>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="monthly" className="space-y-6">
+          {/* Monthly Trend */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Tren Tagihan 6 Bulan Terakhir
+              </CardTitle>
+              <CardDescription>
+                Perkembangan jumlah dan nilai tagihan per bulan
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {data.monthlyData && data.monthlyData.length > 0 ? (
+                  <>
+                    {/* Monthly Bar Chart */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">Jumlah Tagihan per Bulan</h4>
+                      <div className="space-y-2">
+                        {data.monthlyData.map((month) => {
+                          const maxInvoices = Math.max(...data.monthlyData!.map(m => m.totalInvoices))
+                          const percentage = maxInvoices > 0 ? (month.totalInvoices / maxInvoices) * 100 : 0
+                          
+                          return (
+                            <div key={month.month} className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">{month.month}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold">{month.totalInvoices} tagihan</span>
+                                  <span className="text-sm text-gray-600">{formatCurrency(month.totalAmount)}</span>
+                                </div>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-6 relative overflow-hidden">
+                                <div
+                                  className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                >
+                                  <span className="text-white text-xs font-medium flex items-center justify-center h-full">
+                                    {percentage > 10 && `${percentage.toFixed(0)}%`}
+                                  </span>
+                                </div>
+                              </div>
+                              {month.settledInvoices > 0 && (
+                                <div className="flex items-center gap-2 text-xs text-green-600">
+                                  <CheckCircle className="h-3 w-3" />
+                                  <span>{month.settledInvoices} lunas ({formatCurrency(month.settledAmount)})</span>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>Belum ada data bulanan</p>
+                  </div>
+                )}
               </div>
-
-              {/* Detailed Regional Data */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {data.regionData.map((region) => {
-                  const regionCompletionRate = region.totalInvoices > 0 
-                    ? Math.round((region.settledInvoices / region.totalInvoices) * 100)
-                    : 0
-
-                  return (
-                    <div key={region.region} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <Badge className={workRegionColors[region.region as keyof typeof workRegionColors]}>
-                          {workRegionLabels[region.region as keyof typeof workRegionLabels]}
-                        </Badge>
+            </CardContent>
+          </Card>
+          
+          {/* Monthly Settlement Analysis */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Analisis Pelunasan Bulanan
+              </CardTitle>
+              <CardDescription>
+                Rincian tagihan yang dilunasi setiap bulan
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {data.monthlyData && data.monthlyData.length > 0 ? (
+                  <>
+                    {/* Settlement Bar Chart */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">Tagihan Dilunasi per Bulan</h4>
+                      <div className="space-y-2">
+                        {data.monthlyData.map((month) => {
+                          const maxSettlements = Math.max(...data.monthlyData!.map(m => m.settledInThisMonth))
+                          const percentage = maxSettlements > 0 ? (month.settledInThisMonth / maxSettlements) * 100 : 0
+                          
+                          return (
+                            <div key={month.month} className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">{month.month}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-green-600">{month.settledInThisMonth} lunas</span>
+                                  <span className="text-sm text-gray-600">{formatCurrency(month.settledInThisMonthAmount)}</span>
+                                </div>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-6 relative overflow-hidden">
+                                <div
+                                  className="bg-green-500 h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                >
+                                  <span className="text-white text-xs font-medium flex items-center justify-center h-full">
+                                    {percentage > 10 && `${percentage.toFixed(0)}%`}
+                                  </span>
+                                </div>
+                              </div>
+                              {month.settledInThisMonth > 0 && (
+                                <div className="flex items-center gap-2 text-xs text-gray-600">
+                                  <TrendingUp className="h-3 w-3" />
+                                  <span>Tingkat pelunasan: {month.totalInvoices > 0 ? Math.round((month.settledInThisMonth / month.totalInvoices) * 100) : 0}%</span>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Monthly Settlement Summary */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                      <div className="border rounded-lg p-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            {data.monthlyData.reduce((sum, month) => sum + month.settledInThisMonth, 0)}
+                          </div>
+                          <div className="text-sm text-gray-600">Total Tagihan Lunas</div>
+                          <div className="text-lg font-semibold text-green-700 mt-1">
+                            {formatCurrency(data.monthlyData.reduce((sum, month) => sum + month.settledInThisMonthAmount, 0))}
+                          </div>
+                        </div>
                       </div>
                       
-                      <div className="space-y-3">
+                      <div className="border rounded-lg p-4">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">{region.totalInvoices}</div>
-                          <div className="text-xs text-gray-500">Total Tagihan</div>
-                          <div className="text-lg font-semibold text-blue-600 mt-1">
-                            {formatCurrency(region.totalAmount)}
+                          <div className="text-2xl font-bold text-blue-600">
+                            {data.monthlyData.reduce((sum, month) => sum + month.pendingInvoices, 0)}
+                          </div>
+                          <div className="text-sm text-gray-600">Total Menunggu Pembayaran</div>
+                          <div className="text-lg font-semibold text-blue-700 mt-1">
+                            {formatCurrency(data.monthlyData.reduce((sum, month) => sum + month.pendingAmount, 0))}
                           </div>
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="text-center p-2 bg-green-50 rounded">
-                            <div className="text-green-600 font-bold">{region.settledInvoices}</div>
-                            <div className="text-gray-600 text-xs">Lunas</div>
-                            <div className="text-green-700 text-xs font-medium">
-                              {formatCurrency(region.settledAmount)}
-                            </div>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">
+                            {data.monthlyData.length > 0
+                              ? Math.round(
+                                  (data.monthlyData.reduce((sum, month) => sum + month.settledInThisMonth, 0) /
+                                  data.monthlyData.reduce((sum, month) => sum + month.totalInvoices, 0)) * 100
+                                )
+                              : 0}%
                           </div>
-                          <div className="text-center p-2 bg-orange-50 rounded">
-                            <div className="text-orange-600 font-bold">{region.pendingInvoices}</div>
-                            <div className="text-gray-600 text-xs">Menunggu</div>
-                            <div className="text-orange-700 text-xs font-medium">
-                              {formatCurrency(region.pendingAmount)}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="pt-2 border-t">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs text-gray-600">Tingkat Lunas</span>
-                            <span className="text-sm font-bold text-green-600">{regionCompletionRate}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${regionCompletionRate}%` }}
-                            ></div>
+                          <div className="text-sm text-gray-600">Rata-rata Tingkat Pelunasan</div>
+                          <div className="text-lg font-semibold text-purple-700 mt-1">
+                            6 bulan terakhir
                           </div>
                         </div>
                       </div>
                     </div>
-                  )
-                })}
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <DollarSign className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>Belum ada data pelunasan bulanan</p>
+                  </div>
+                )}
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="position" className="space-y-6">
+          {/* Position Analysis */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Analisis Posisi Tagihan</CardTitle>
+              <CardDescription>
+                Distribusi tagihan berdasarkan posisi saat ini
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {data.positionData && data.positionData.length > 0 ? (
+                  <>
+                    {/* Position Bar Chart */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-700">Distribusi Posisi Tagihan</h4>
+                      <div className="space-y-2">
+                        {data.positionData.map((position) => {
+                          const maxCount = Math.max(...data.positionData!.map(p => p.count))
+                          const percentage = maxCount > 0 ? (position.count / maxCount) * 100 : 0
+                          
+                          return (
+                            <div key={position.position} className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <Badge className={positionColors[position.position as keyof typeof positionColors] || 'bg-gray-100 text-gray-800'}>
+                                    {positionLabels[position.position as keyof typeof positionLabels] || position.position}
+                                  </Badge>
+                                  <span className="text-sm font-medium">{position.count} tagihan</span>
+                                </div>
+                                <span className="text-sm text-gray-600">{formatCurrency(position.totalAmount)}</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-6 relative overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                >
+                                  <span className="text-white text-xs font-medium flex items-center justify-center h-full">
+                                    {percentage > 10 && `${percentage.toFixed(0)}%`}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Position Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                      {data.positionData.map((position) => (
+                        <div key={position.position} className="border rounded-lg p-4 text-center">
+                          <Badge className={`mb-2 ${positionColors[position.position as keyof typeof positionColors] || 'bg-gray-100 text-gray-800'}`}>
+                            {positionLabels[position.position as keyof typeof positionLabels] || position.position}
+                          </Badge>
+                          <div className="text-2xl font-bold text-gray-900">{position.count}</div>
+                          <div className="text-sm text-gray-600">{formatCurrency(position.totalAmount)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>Belum ada data posisi</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

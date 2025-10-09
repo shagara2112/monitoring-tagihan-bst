@@ -33,6 +33,10 @@ export function InvoiceForm({ isOpen, onClose, onSuccess }: InvoiceFormProps) {
     status: 'DRAFT',
     position: 'MITRA',
     workRegion: 'TARAKAN',
+    jobTitle: '',
+    workPeriod: '',
+    category: '',
+    customCategory: '',
     notes: '',
   })
 
@@ -41,6 +45,9 @@ export function InvoiceForm({ isOpen, onClose, onSuccess }: InvoiceFormProps) {
     setLoading(true)
 
     try {
+      // Determine the actual category value
+      const actualCategory = formData.category === 'LAINNYA' ? formData.customCategory : formData.category;
+      
       const response = await fetch('/api/invoices', {
         method: 'POST',
         headers: {
@@ -48,6 +55,7 @@ export function InvoiceForm({ isOpen, onClose, onSuccess }: InvoiceFormProps) {
         },
         body: JSON.stringify({
           ...formData,
+          category: actualCategory,
           issueDate: formData.issueDate.toISOString(),
           dueDate: formData.dueDate.toISOString(),
         }),
@@ -68,6 +76,10 @@ export function InvoiceForm({ isOpen, onClose, onSuccess }: InvoiceFormProps) {
           status: 'DRAFT',
           position: 'MITRA',
           workRegion: 'TARAKAN',
+          jobTitle: '',
+          workPeriod: '',
+          category: '',
+          customCategory: '',
           notes: '',
         })
       } else {
@@ -266,6 +278,60 @@ export function InvoiceForm({ isOpen, onClose, onSuccess }: InvoiceFormProps) {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="jobTitle">Nama Pekerjaan</Label>
+              <Input
+                id="jobTitle"
+                value={formData.jobTitle}
+                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                placeholder="Nama pekerjaan atau proyek"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="workPeriod">Periode Pekerjaan</Label>
+              <Input
+                id="workPeriod"
+                value={formData.workPeriod}
+                onChange={(e) => setFormData({ ...formData, workPeriod: e.target.value })}
+                placeholder="Contoh: Januari 2024, Q1 2024, dll"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Kategori Tagihan</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData({ ...formData, category: value, customCategory: value === 'LAINNYA' ? '' : formData.customCategory })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PASANG_BARU">Pasang Baru</SelectItem>
+                  <SelectItem value="ASSURANCE">Assurance</SelectItem>
+                  <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                  <SelectItem value="OSP">OSP</SelectItem>
+                  <SelectItem value="SIPIL">Sipil</SelectItem>
+                  <SelectItem value="KONSTRUKSI">Konstruksi</SelectItem>
+                  <SelectItem value="LAINNYA">Lainnya</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.category === 'LAINNYA' && (
+              <div className="space-y-2">
+                <Label htmlFor="customCategory">Kategori Kustom</Label>
+                <Input
+                  id="customCategory"
+                  value={formData.customCategory}
+                  onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })}
+                  placeholder="Masukkan kategori kustom"
+                />
+              </div>
+            )}
+
           </div>
 
           <div className="space-y-2">

@@ -114,8 +114,20 @@ Thumbs.db
 db/
 *.sql
 
-# Scripts (optional - uncomment if you want to exclude scripts)
-# scripts/
+# Scripts
+*.js
+!scripts/
 
-# Documentation files (optional - uncomment if you want to exclude)
-# *.md
+# Environment files
+.env.*
+!.env.example
+
+# SQL files
+*.sql
+
+# Documentation files
+*.md
+!README.md
+
+# Supabase
+supabase/

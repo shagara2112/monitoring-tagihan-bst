@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
     const headers = [
       'Nomor Tagihan',
       'Klien',
+      'Nama Pekerjaan',
+      'Periode Pekerjaan',
       'Tanggal Terbit',
       'Tanggal Jatuh Tempo',
       'Jumlah',
@@ -80,6 +82,8 @@ export async function GET(request: NextRequest) {
       ...invoices.map(invoice => [
         invoice.invoiceNumber,
         `"${invoice.clientName}"`,
+        `"${(invoice as any).jobTitle || ''}"`,
+        `"${(invoice as any).workPeriod || ''}"`,
         invoice.issueDate.toISOString().split('T')[0],
         invoice.dueDate.toISOString().split('T')[0],
         invoice.totalAmount.toString(),
