@@ -164,12 +164,12 @@ export default function Dashboard() {
       const response = await fetch('/api/invoices')
       if (response.ok) {
         const data = await response.json()
-        setInvoices(data.invoices)
-        setStats(data.stats)
+        setInvoices(data.invoices || [])
+        setStats(data.stats || null)
         setAnalyticsRefreshTrigger(prev => prev + 1)
         toast({
           title: 'Data berhasil dimuat',
-          description: `${data.invoices.length} tagihan berhasil dimuat`,
+          description: `${data.invoices?.length || 0} tagihan berhasil dimuat`,
           variant: 'success',
           duration: 2000
         })
@@ -180,9 +180,12 @@ export default function Dashboard() {
       console.error('Error fetching invoices:', error)
       toast({
         title: 'Error',
-        description: 'Gagal memuat data tagihan',
+        description: 'Gagal memuat data tagihan. Silakan coba lagi.',
         variant: 'destructive'
       })
+      // Set empty data on error to prevent UI issues
+      setInvoices([])
+      setStats(null)
     } finally {
       setLoading(false)
     }
