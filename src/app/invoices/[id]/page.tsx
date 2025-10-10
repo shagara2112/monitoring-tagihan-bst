@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Edit, FileText, Calendar, DollarSign, User, MapPin } from 'lucide-react'
 import { InvoiceHistory } from '@/components/invoice-history'
+import { EditInvoiceButton } from '@/components/invoice-edit'
 
 interface Invoice {
   id: string
@@ -18,9 +19,9 @@ interface Invoice {
   totalAmount: number
   currency: string
   description: string
-  status: string
-  position: string
-  workRegion: string
+  status: 'DRAFT' | 'SUBMITTED' | 'INTERNAL_VALIDATION' | 'AWAITING_PAYMENT' | 'SETTLED' | 'DELAYED'
+  position: 'MITRA' | 'USER' | 'AREA' | 'REGIONAL' | 'HEAD_OFFICE' | 'APM' | 'TERBAYAR'
+  workRegion: 'TARAKAN' | 'BALIKPAPAN' | 'SAMARINDA'
   jobTitle?: string
   workPeriod?: string
   category?: string
@@ -33,6 +34,7 @@ interface Invoice {
   positionUpdatedBy?: string
   createdAt: string
   updatedAt: string
+  createdById: string
   createdBy?: {
     id: string
     name: string
@@ -160,10 +162,7 @@ export default function InvoiceDetailPage() {
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">Detail Invoice</h1>
         </div>
-        <Button>
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Invoice
-        </Button>
+        {invoice && <EditInvoiceButton invoice={invoice as any} onSuccess={() => window.location.reload()} />}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
