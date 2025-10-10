@@ -175,14 +175,14 @@ export async function PUT(
         // use raw query
         try {
           for (const record of historyRecords) {
-            // Generate a valid UUID using crypto API
-            const uuid = crypto.randomUUID()
+            // Generate a valid CUID using the same pattern as Prisma
+            const cuid = `c${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
             
             await db.$queryRaw`
               INSERT INTO "InvoiceHistory" (
                 id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
               ) VALUES (
-                ${uuid},
+                ${cuid},
                 ${record.invoiceId},
                 ${record.field},
                 ${record.oldValue},
