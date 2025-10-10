@@ -1,11 +1,6 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
+  
   "env": {
     "DATABASE_URL": "@database_url",
     "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
@@ -17,6 +12,7 @@
   },
   "functions": {
     "src/api/**/*.ts": {
+      "runtime": "nodejs22.x",
       "maxDuration": 30
     }
   },
