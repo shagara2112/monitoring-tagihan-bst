@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { db, dbWithRetry } from '@/lib/db'
 import { verifyAuth } from '@/lib/auth'
 
 export async function GET(
@@ -18,9 +18,17 @@ export async function GET(
 
     const { id } = await params
     const invoiceId = id
+    
+    // Validate ID
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        { error: 'Invalid invoice ID' },
+        { status: 400 }
+      )
+    }
 
     // Check if invoice exists
-    const invoice = await db.invoice.findUnique({
+    const invoice = await dbWithRetry.invoice.findUnique({
       where: { id: invoiceId },
     })
 
@@ -35,7 +43,7 @@ export async function GET(
     let history = []
     try {
       // Try to use Prisma if available
-      history = await (db as any).invoiceHistory.findMany({
+      history = await (dbWithRetry as any).invoiceHistory.findMany({
         where: { invoiceId },
         orderBy: { changedAt: 'desc' },
       })
@@ -43,7 +51,7 @@ export async function GET(
       // If Prisma client doesn't have the InvoiceHistory model yet,
       // use raw query
       try {
-        history = await db.$queryRaw`
+        history = await (dbWithRetry as any).$queryRaw`
           SELECT * FROM "InvoiceHistory" WHERE invoiceId = ${invoiceId} ORDER BY changedAt DESC
         `
       } catch (rawError) {
