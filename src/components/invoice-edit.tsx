@@ -130,38 +130,54 @@ export function InvoiceEdit({ invoice, isOpen, onClose, onSuccess }: InvoiceEdit
     if (!invoice) return
     
     setLoading(true)
+    let retryCount = 0
+    const maxRetries = 3
+    let success = false
 
-    try {
-      // Determine the actual category value
-      const actualCategory = formData.category === 'LAINNYA' ? formData.customCategory : formData.category;
-      
-      const response = await fetch(`/api/invoices/${invoice.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          category: actualCategory,
-          issueDate: formData.issueDate.toISOString(),
-          dueDate: formData.dueDate.toISOString(),
-          totalAmount: parseFloat(formData.totalAmount),
-        }),
-      })
+    while (retryCount < maxRetries && !success) {
+      try {
+        // Determine the actual category value
+        const actualCategory = formData.category === 'LAINNYA' ? formData.customCategory : formData.category;
+        
+        const response = await fetch(`/api/invoices/${invoice.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...formData,
+            category: actualCategory,
+            issueDate: formData.issueDate.toISOString(),
+            dueDate: formData.dueDate.toISOString(),
+            totalAmount: parseFloat(formData.totalAmount),
+          }),
+        })
 
-      if (response.ok) {
-        onSuccess()
-        onClose()
-      } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to update invoice')
+        if (response.ok) {
+          onSuccess()
+          onClose()
+          success = true
+        } else {
+          const error = await response.json()
+          if (retryCount === maxRetries - 1) {
+            alert(error.error || 'Failed to update invoice')
+          }
+          retryCount++
+        }
+      } catch (error) {
+        console.error(`Error updating invoice (attempt ${retryCount + 1}):`, error)
+        retryCount++
+        
+        // Wait a bit before retrying
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+        } else {
+          alert('Failed to update invoice after several attempts')
+        }
       }
-    } catch (error) {
-      console.error('Error updating invoice:', error)
-      alert('Failed to update invoice')
-    } finally {
-      setLoading(false)
     }
+    
+    setLoading(false)
   }
 
   return (
