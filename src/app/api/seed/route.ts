@@ -1,25 +1,30 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import bcrypt from 'bcryptjs'
 
 export async function POST() {
   try {
     // Create sample users
+    const adminPassword = await bcrypt.hash('admin123', 10)
     const adminUser = await db.user.upsert({
       where: { email: 'admin@company.com' },
       update: {},
       create: {
         email: 'admin@company.com',
         name: 'Admin User',
+        password: adminPassword,
         role: 'ADMIN',
       },
     })
 
+    const staffPassword = await bcrypt.hash('staff123', 10)
     const staffUser = await db.user.upsert({
       where: { email: 'staff@company.com' },
       update: {},
       create: {
         email: 'staff@company.com',
         name: 'Staff User',
+        password: staffPassword,
         role: 'STAFF',
       },
     })

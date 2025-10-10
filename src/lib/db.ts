@@ -24,7 +24,7 @@ export const testDatabaseConnection = async () => {
     console.log('✅ Prisma connection successful')
     return true
   } catch (error) {
-    console.log('❌ Database connection failed:', error.message)
+    console.log('❌ Database connection failed:', (error as Error).message)
     return false
   }
 }
