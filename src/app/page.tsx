@@ -160,35 +160,51 @@ export default function Dashboard() {
 
   const fetchInvoices = async () => {
     setLoading(true)
-    try {
-      const response = await fetch('/api/invoices')
-      if (response.ok) {
-        const data = await response.json()
-        setInvoices(data.invoices || [])
-        setStats(data.stats || null)
-        setAnalyticsRefreshTrigger(prev => prev + 1)
-        toast({
-          title: 'Data berhasil dimuat',
-          description: `${data.invoices?.length || 0} tagihan berhasil dimuat`,
-          variant: 'success',
-          duration: 2000
-        })
-      } else {
-        throw new Error('Failed to fetch invoices')
+    let retryCount = 0
+    const maxRetries = 3
+    let success = false
+    
+    while (retryCount < maxRetries && !success) {
+      try {
+        const response = await fetch('/api/invoices')
+        if (response.ok) {
+          const data = await response.json()
+          setInvoices(data.invoices || [])
+          setStats(data.stats || null)
+          setAnalyticsRefreshTrigger(prev => prev + 1)
+          toast({
+            title: 'Data berhasil dimuat',
+            description: `${data.invoices?.length || 0} tagihan berhasil dimuat`,
+            variant: 'success',
+            duration: 2000
+          })
+          success = true
+        } else {
+          throw new Error('Failed to fetch invoices')
+        }
+      } catch (error) {
+        console.error(`Error fetching invoices (attempt ${retryCount + 1}):`, error)
+        retryCount++
+        
+        // Wait a bit before retrying
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+        }
       }
-    } catch (error) {
-      console.error('Error fetching invoices:', error)
+    }
+    
+    if (!success) {
       toast({
         title: 'Error',
-        description: 'Gagal memuat data tagihan. Silakan coba lagi.',
+        description: 'Gagal memuat data tagihan setelah beberapa percobaan. Silakan refresh halaman.',
         variant: 'destructive'
       })
       // Set empty data on error to prevent UI issues
       setInvoices([])
       setStats(null)
-    } finally {
-      setLoading(false)
     }
+    
+    setLoading(false)
   }
 
   const filteredInvoices = invoices.filter(invoice => {
