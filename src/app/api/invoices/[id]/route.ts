@@ -123,49 +123,66 @@ export async function PUT(
     }
 
     let invoice
-    try {
-      invoice = await db.invoice.update({
-        where: { id },
-        data: updateData,
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+    let retryCount = 0
+    const maxRetries = 3
+    
+    while (retryCount < maxRetries) {
+      try {
+        invoice = await db.invoice.update({
+          where: { id },
+          data: updateData,
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
-      })
-    } catch (updateError) {
-      console.error('Error during invoice update:', updateError)
-      // Try to get the current invoice data as fallback
-      invoice = await db.invoice.findUnique({
-        where: { id },
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        })
+        break // Success, exit the retry loop
+      } catch (updateError) {
+        console.error(`Error during invoice update (attempt ${retryCount + 1}):`, updateError)
+        
+        // If it's a prepared statement error, retry
+        if (updateError instanceof Error &&
+            updateError.message.includes('prepared statement') &&
+            retryCount < maxRetries - 1) {
+          retryCount++
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+          continue // Skip to the next retry
+        }
+        
+        // Try to get the current invoice data as fallback
+        invoice = await db.invoice.findUnique({
+          where: { id },
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
-      })
-      
-      if (!invoice) {
-        return NextResponse.json(
-          { error: 'Invoice not found after update error' },
-          { status: 404 }
-        )
+        })
+        
+        if (!invoice) {
+          return NextResponse.json(
+            { error: 'Invoice not found after update error' },
+            { status: 404 }
+          )
+        }
+        
+        // Return a message that the update partially failed
+        return NextResponse.json({
+          ...invoice,
+          positionUpdatedAt: invoice.positionUpdatedAt?.toISOString(),
+          warning: 'Invoice update partially successful. Some data may not have been saved.'
+        })
       }
-      
-      // Return a message that the update partially failed
-      return NextResponse.json({
-        ...invoice,
-        positionUpdatedAt: invoice.positionUpdatedAt?.toISOString(),
-        warning: 'Invoice update partially successful. Some data may not have been saved.'
-      })
     }
 
     // Create history records for status and position changes
