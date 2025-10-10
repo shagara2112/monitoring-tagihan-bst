@@ -9,7 +9,7 @@ export const db = globalForPrisma.prisma ?? new PrismaClient({
   log: ['query'],
   datasources: {
     db: {
-      url: process.env.DATABASE_URL + "?connection_limit=10&pool_timeout=20&prepare=false"
+      url: process.env.DATABASE_URL?.replace('aws-1-ap-southeast-1.pooler.supabase.com:6543', 'aws-1-ap-southeast-1.pooler.supabase.com:5432')
     }
   }
 })
