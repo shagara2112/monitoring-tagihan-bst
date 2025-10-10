@@ -8,11 +8,7 @@ const nextConfig: NextConfig = {
   // Enable React strict mode for production
   reactStrictMode: process.env.NODE_ENV === 'production',
   
-  // Optimizations for production
-  swcMinify: true,
   
-  // Output configuration for standalone deployment
-  output: 'standalone',
   
   // Image optimization
   images: {
@@ -93,10 +89,8 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   
-  // Experimental features
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
-  },
+  // Server External Packages
+  serverExternalPackages: ['@prisma/client'],
 };
 
 export default nextConfig;
