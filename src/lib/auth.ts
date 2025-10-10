@@ -26,17 +26,39 @@ export async function verifyAuth(request: NextRequest): Promise<AuthUser | null>
     };
 
     // Get user from Prisma to ensure they still exist
-    const user = await db.user.findUnique({
-      where: {
-        id: decoded.userId,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-      },
-    });
+    // Add retry logic to handle prepared statement errors
+    let user: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: string;
+    } | null = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries && !user) {
+      try {
+        user = await db.user.findUnique({
+          where: {
+            id: decoded.userId,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+          },
+        });
+      } catch (dbError) {
+        console.error(`Database error during auth verification (attempt ${retryCount + 1}):`, dbError);
+        retryCount++;
+        
+        // Wait a bit before retrying
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+        }
+      }
+    }
 
     if (!user) {
       return null;

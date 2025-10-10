@@ -196,21 +196,16 @@ export async function PUT(
     }
 
     // Create history records if there are changes
+    // Always use raw query to avoid prepared statement issues
     if (historyRecords.length > 0) {
       try {
-        // Try to use Prisma if available
-        await (db as any).invoiceHistory.createMany({
-          data: historyRecords,
-        })
-      } catch (error) {
-        // If Prisma client doesn't have the InvoiceHistory model yet,
-        // use raw query
-        try {
+        // Use a single transaction to ensure all history records are created
+        await db.$transaction(async (tx) => {
           for (const record of historyRecords) {
             // Generate a valid CUID using the same pattern as Prisma
             const cuid = `c${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
             
-            await db.$queryRaw`
+            await tx.$queryRaw`
               INSERT INTO "InvoiceHistory" (
                 id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
               ) VALUES (
@@ -225,9 +220,11 @@ export async function PUT(
               )
             `
           }
-        } catch (rawError) {
-          console.log('History recording failed:', rawError)
-        }
+        })
+      } catch (historyError) {
+        console.error('History recording failed:', historyError)
+        // Don't fail the entire request if history recording fails
+        // Just log the error and continue
       }
     }
 
