@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { db, dbWithRetry } from '@/lib/db'
 import { verifyAuth } from '@/lib/auth'
 
 export async function GET(
@@ -8,7 +8,16 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const invoice = await db.invoice.findUnique({
+    
+    // Validate ID
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        { error: 'Invalid invoice ID' },
+        { status: 400 }
+      )
+    }
+    
+    const invoice = await dbWithRetry.invoice.findUnique({
       where: { id },
       include: {
         createdBy: {
@@ -56,6 +65,15 @@ export async function PUT(
     }
 
     const { id } = await params
+    
+    // Validate ID
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        { error: 'Invalid invoice ID' },
+        { status: 400 }
+      )
+    }
+    
     const body = await request.json()
     const {
       clientName,
@@ -79,7 +97,7 @@ export async function PUT(
     } = body
 
     // Get current invoice to check for changes
-    const currentInvoice = await db.invoice.findUnique({
+    const currentInvoice = await dbWithRetry.invoice.findUnique({
       where: { id },
     })
 
@@ -124,7 +142,7 @@ export async function PUT(
 
     let invoice
     try {
-      invoice = await db.invoice.update({
+      invoice = await dbWithRetry.invoice.update({
         where: { id },
         data: updateData,
         include: {
@@ -140,7 +158,7 @@ export async function PUT(
     } catch (updateError) {
       console.error('Error during invoice update:', updateError)
       // Try to get the current invoice data as fallback
-      invoice = await db.invoice.findUnique({
+      invoice = await dbWithRetry.invoice.findUnique({
         where: { id },
         include: {
           createdBy: {
@@ -247,7 +265,16 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    await db.invoice.delete({
+    
+    // Validate ID
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        { error: 'Invalid invoice ID' },
+        { status: 400 }
+      )
+    }
+    
+    await dbWithRetry.invoice.delete({
       where: { id },
     })
 
