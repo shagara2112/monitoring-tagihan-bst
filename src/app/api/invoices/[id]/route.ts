@@ -175,11 +175,14 @@ export async function PUT(
         // use raw query
         try {
           for (const record of historyRecords) {
+            // Generate a valid UUID using crypto API
+            const uuid = crypto.randomUUID()
+            
             await db.$queryRaw`
               INSERT INTO "InvoiceHistory" (
                 id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
               ) VALUES (
-                ${`cmgfzbzj${Math.random().toString(36).substring(2, 15)}`},
+                ${uuid},
                 ${record.invoiceId},
                 ${record.field},
                 ${record.oldValue},
