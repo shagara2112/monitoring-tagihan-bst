@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { dbWithRetry } from '@/lib/db'
 import { verifyAuth, isManagerOrAdmin } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch invoices with creator information using Prisma
-    const invoices = await db.invoice.findMany({
+    const invoices = await dbWithRetry.invoice.findMany({
       include: {
         createdBy: {
           select: {
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       positionUpdatedBy: inv.positionUpdatedBy,
       createdAt: inv.createdAt.toISOString(),
       updatedAt: inv.updatedAt.toISOString(),
-      createdBy: inv.createdBy,
+      createdBy: (inv as any).createdBy,
     }))
 
     // Calculate statistics
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if invoice number already exists using Prisma
-    const existingInvoice = await db.invoice.findUnique({
+    const existingInvoice = await dbWithRetry.invoice.findUnique({
       where: {
         invoiceNumber: invoiceNumber,
       },
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new invoice using Prisma
-    const invoice = await db.invoice.create({
+    const invoice = await dbWithRetry.invoice.create({
       data: {
         invoiceNumber,
         clientName,

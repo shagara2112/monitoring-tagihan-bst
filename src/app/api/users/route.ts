@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { dbWithRetry } from '@/lib/db';
 import { verifyAuth, isSuperAdmin } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get users with invoice count using Prisma
-    const users = await db.user.findMany({
+    const users = await dbWithRetry.user.findMany({
       include: {
         _count: {
           select: {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       _count: {
-        invoices: user._count.invoices,
+        invoices: (user as any)._count?.invoices || 0,
       },
     }));
 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await db.user.findUnique({
+    const existingUser = await dbWithRetry.user.findUnique({
       where: { email }
     });
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const newUser = await db.user.create({
+    const newUser = await dbWithRetry.user.create({
       data: {
         email,
         password: hashedPassword,
