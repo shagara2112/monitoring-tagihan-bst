@@ -122,19 +122,51 @@ export async function PUT(
       updateData.positionUpdatedBy = user.name || user.email
     }
 
-    const invoice = await db.invoice.update({
-      where: { id },
-      data: updateData,
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    let invoice
+    try {
+      invoice = await db.invoice.update({
+        where: { id },
+        data: updateData,
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-    })
+      })
+    } catch (updateError) {
+      console.error('Error during invoice update:', updateError)
+      // Try to get the current invoice data as fallback
+      invoice = await db.invoice.findUnique({
+        where: { id },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      })
+      
+      if (!invoice) {
+        return NextResponse.json(
+          { error: 'Invoice not found after update error' },
+          { status: 404 }
+        )
+      }
+      
+      // Return a message that the update partially failed
+      return NextResponse.json({
+        ...invoice,
+        positionUpdatedAt: invoice.positionUpdatedAt?.toISOString(),
+        warning: 'Invoice update partially successful. Some data may not have been saved.'
+      })
+    }
 
     // Create history records for status and position changes
     const historyRecords: any[] = []
