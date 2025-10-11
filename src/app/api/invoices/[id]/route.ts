@@ -66,6 +66,9 @@ export async function PUT(
 
     const { id } = await params
     
+    // Log the ID for debugging
+    console.log('Invoice ID for PUT:', id)
+    
     // Validate ID
     if (!id || id.trim() === '') {
       return NextResponse.json(
@@ -142,6 +145,10 @@ export async function PUT(
 
     let invoice
     try {
+      // Log the update data for debugging
+      console.log('Update data:', updateData)
+      console.log('Invoice ID for update:', id)
+      
       invoice = await dbWithRetry.invoice.update({
         where: { id },
         data: updateData,
