@@ -295,11 +295,18 @@ export async function PUT(
           console.error('Raw query also failed:', rawQueryError)
           // As a last resort, try to build a completely manual query
           try {
+            // Format dates properly for PostgreSQL
+            const formatDate = (date: Date | string | undefined) => {
+              if (!date) return new Date().toISOString()
+              const d = new Date(date)
+              return d.toISOString()
+            }
+            
             const manualQuery = `
               UPDATE "public"."Invoice"
               SET "clientName" = '${updateData.clientName || ''}',
-              "issueDate" = '${updateData.issueDate || new Date()}',
-              "dueDate" = '${updateData.dueDate || new Date()}',
+              "issueDate" = '${formatDate(updateData.issueDate)}',
+              "dueDate" = '${formatDate(updateData.dueDate)}',
               "totalAmount" = ${updateData.totalAmount || 0},
               "currency" = '${updateData.currency || 'IDR'}',
               "description" = '${updateData.description || ''}',
@@ -309,7 +316,7 @@ export async function PUT(
               "workPeriod" = '${updateData.workPeriod || ''}',
               "category" = '${updateData.category || ''}',
               "notes" = '${updateData.notes || ''}',
-              "updatedAt" = '${new Date()}'
+              "updatedAt" = '${new Date().toISOString()}'
               WHERE "id" = '${id}'
               RETURNING *
             `
