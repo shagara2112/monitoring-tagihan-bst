@@ -145,11 +145,20 @@ export function InvoiceEdit({ invoice, isOpen, onClose, onSuccess }: InvoiceEdit
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            ...formData,
-            category: actualCategory,
+            invoiceNumber: formData.invoiceNumber,
+            clientName: formData.clientName,
             issueDate: formData.issueDate.toISOString(),
             dueDate: formData.dueDate.toISOString(),
             totalAmount: parseFloat(formData.totalAmount),
+            currency: formData.currency,
+            description: formData.description,
+            status: formData.status,
+            position: formData.position,
+            workRegion: formData.workRegion,
+            jobTitle: formData.jobTitle,
+            workPeriod: formData.workPeriod,
+            category: actualCategory,
+            notes: formData.notes,
           }),
         })
 
