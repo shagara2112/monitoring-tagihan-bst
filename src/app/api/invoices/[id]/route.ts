@@ -143,11 +143,27 @@ export async function PUT(
       updateData.positionUpdatedBy = user.name || user.email
     }
 
+    // Make sure ID is valid before proceeding
+    if (!id || id.trim() === '') {
+      return NextResponse.json(
+        { error: 'Invalid invoice ID' },
+        { status: 400 }
+      )
+    }
+
     let invoice
     try {
       // Log the update data for debugging
       console.log('Update data:', updateData)
       console.log('Invoice ID for update:', id)
+      
+      // Double-check ID is not null or empty
+      if (!id || id.trim() === '') {
+        return NextResponse.json(
+          { error: 'Invoice ID cannot be null or empty' },
+          { status: 400 }
+        )
+      }
       
       invoice = await dbWithRetry.invoice.update({
         where: { id },
@@ -224,6 +240,15 @@ export async function PUT(
     // Always use raw query to avoid prepared statement issues
     if (historyRecords.length > 0) {
       try {
+        // Make sure ID is valid before creating history records
+        if (!id || id.trim() === '') {
+          console.error('Cannot create history records: Invalid invoice ID')
+          return NextResponse.json(
+            { error: 'Invalid invoice ID for history recording' },
+            { status: 400 }
+          )
+        }
+        
         // Use a single transaction to ensure all history records are created
         // Use raw query to avoid prepared statement issues
         await (dbWithRetry as any).$queryRaw`
