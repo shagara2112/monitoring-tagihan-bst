@@ -165,19 +165,138 @@ export async function PUT(
         )
       }
       
-      invoice = await dbWithRetry.invoice.update({
-        where: { id },
-        data: updateData,
-        include: {
-          createdBy: {
+      // Try using Prisma first
+      try {
+        invoice = await dbWithRetry.invoice.update({
+          where: { id },
+          data: updateData,
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        })
+      } catch (prismaError) {
+        console.error('Prisma update failed, trying raw query:', prismaError)
+        
+        // If Prisma fails, try raw query
+        const updateFields: string[] = []
+        const updateValues: any[] = []
+        
+        if (updateData.clientName) {
+          updateFields.push('"clientName" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.clientName)
+        }
+        if (updateData.issueDate) {
+          updateFields.push('"issueDate" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.issueDate)
+        }
+        if (updateData.dueDate) {
+          updateFields.push('"dueDate" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.dueDate)
+        }
+        if (updateData.totalAmount) {
+          updateFields.push('"totalAmount" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.totalAmount)
+        }
+        if (updateData.currency) {
+          updateFields.push('"currency" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.currency)
+        }
+        if (updateData.description) {
+          updateFields.push('"description" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.description)
+        }
+        if (updateData.status) {
+          updateFields.push('"status" = CAST($' + (updateFields.length + 1) + '::text AS "public"."InvoiceStatus")')
+          updateValues.push(updateData.status)
+        }
+        if (updateData.position) {
+          updateFields.push('"position" = CAST($' + (updateFields.length + 1) + '::text AS "public"."InvoicePosition")')
+          updateValues.push(updateData.position)
+        }
+        if (updateData.workRegion) {
+          updateFields.push('"workRegion" = CAST($' + (updateFields.length + 1) + '::text AS "public"."WorkRegion")')
+          updateValues.push(updateData.workRegion)
+        }
+        if (updateData.jobTitle) {
+          updateFields.push('"jobTitle" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.jobTitle)
+        }
+        if (updateData.workPeriod) {
+          updateFields.push('"workPeriod" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.workPeriod)
+        }
+        if (updateData.category) {
+          updateFields.push('"category" = CAST($' + (updateFields.length + 1) + '::text AS "public"."InvoiceCategory")')
+          updateValues.push(updateData.category)
+        }
+        if (updateData.notes !== undefined) {
+          updateFields.push('"notes" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.notes)
+        }
+        if (updateData.settlementDate) {
+          updateFields.push('"settlementDate" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.settlementDate)
+        }
+        if (updateData.settlementAmount) {
+          updateFields.push('"settlementAmount" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.settlementAmount)
+        }
+        if (updateData.paymentMethod) {
+          updateFields.push('"paymentMethod" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.paymentMethod)
+        }
+        if (updateData.settlementNotes !== undefined) {
+          updateFields.push('"settlementNotes" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.settlementNotes)
+        }
+        if (updateData.positionUpdatedAt) {
+          updateFields.push('"positionUpdatedAt" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.positionUpdatedAt)
+        }
+        if (updateData.positionUpdatedBy) {
+          updateFields.push('"positionUpdatedBy" = $' + (updateFields.length + 1))
+          updateValues.push(updateData.positionUpdatedBy)
+        }
+        
+        // Always update updatedAt
+        updateFields.push('"updatedAt" = $' + (updateFields.length + 1))
+        updateValues.push(new Date())
+        
+        // Add ID to values
+        updateValues.push(id)
+        
+        const updateQuery = `
+          UPDATE "public"."Invoice"
+          SET ${updateFields.join(', ')}
+          WHERE "id" = $${updateFields.length + 1}
+          RETURNING *
+        `
+        
+        console.log('Raw update query:', updateQuery)
+        console.log('Update values:', updateValues)
+        
+        const result = await (dbWithRetry as any).$queryRawUnsafe(updateQuery, ...updateValues)
+        invoice = result[0]
+        
+        // Get the user data
+        if (invoice.createdById) {
+          const user = await dbWithRetry.user.findUnique({
+            where: { id: invoice.createdById },
             select: {
               id: true,
               name: true,
               email: true,
             },
-          },
-        },
-      })
+          })
+          invoice.createdBy = user
+        }
+      }
     } catch (updateError) {
       console.error('Error during invoice update:', updateError)
       // Try to get the current invoice data as fallback
