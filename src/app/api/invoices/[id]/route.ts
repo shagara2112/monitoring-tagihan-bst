@@ -281,7 +281,13 @@ export async function PUT(
         console.log('Raw update query:', updateQuery)
         console.log('Update values:', updateValues)
         
-        const result = await (dbWithRetry as any).$queryRawUnsafe(updateQuery, ...updateValues)
+        // Use template literal instead of $queryRawUnsafe to ensure parameters are properly passed
+        const result = await (dbWithRetry as any).$queryRaw`
+          UPDATE "public"."Invoice"
+          SET ${updateFields.join(', ')}
+          WHERE "id" = ${id}
+          RETURNING *
+        `
         invoice = result[0]
         
         // Get the user data
