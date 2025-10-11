@@ -218,27 +218,16 @@ export async function PUT(
     if (historyRecords.length > 0) {
       try {
         // Use a single transaction to ensure all history records are created
-        await db.$transaction(async (tx) => {
-          for (const record of historyRecords) {
-            // Generate a valid CUID using the same pattern as Prisma
+        // Use raw query to avoid prepared statement issues
+        await (dbWithRetry as any).$queryRaw`
+          INSERT INTO "InvoiceHistory" (
+            id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
+          ) VALUES
+          ${historyRecords.map(record => {
             const cuid = `c${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
-            
-            await tx.$queryRaw`
-              INSERT INTO "InvoiceHistory" (
-                id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
-              ) VALUES (
-                ${cuid},
-                ${record.invoiceId},
-                ${record.field},
-                ${record.oldValue},
-                ${record.newValue},
-                ${record.changedBy},
-                ${new Date()},
-                ${record.notes || null}
-              )
-            `
-          }
-        })
+            return `(${cuid}, ${record.invoiceId}, ${record.field}, ${record.oldValue}, ${record.newValue}, ${record.changedBy}, ${new Date()}, ${record.notes || null})`
+          }).join(', ')}
+        `
       } catch (historyError) {
         console.error('History recording failed:', historyError)
         // Don't fail the entire request if history recording fails
