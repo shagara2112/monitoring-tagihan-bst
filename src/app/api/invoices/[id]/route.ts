@@ -282,13 +282,45 @@ export async function PUT(
         console.log('Update values:', updateValues)
         
         // Use template literal instead of $queryRawUnsafe to ensure parameters are properly passed
-        const result = await (dbWithRetry as any).$queryRaw`
-          UPDATE "public"."Invoice"
-          SET ${updateFields.join(', ')}
-          WHERE "id" = ${id}
-          RETURNING *
-        `
-        invoice = result[0]
+        try {
+          const result = await (dbWithRetry as any).$queryRaw`
+            UPDATE "public"."Invoice"
+            SET ${updateFields.join(', ')}
+            WHERE "id" = ${id}
+            RETURNING *
+          `
+          // Handle the result properly
+          invoice = Array.isArray(result) ? result[0] : result
+        } catch (rawQueryError) {
+          console.error('Raw query also failed:', rawQueryError)
+          // As a last resort, try to build a completely manual query
+          try {
+            const manualQuery = `
+              UPDATE "public"."Invoice"
+              SET "clientName" = '${updateData.clientName || ''}',
+              "issueDate" = '${updateData.issueDate || new Date()}',
+              "dueDate" = '${updateData.dueDate || new Date()}',
+              "totalAmount" = ${updateData.totalAmount || 0},
+              "currency" = '${updateData.currency || 'IDR'}',
+              "description" = '${updateData.description || ''}',
+              "status" = '${updateData.status || 'DRAFT'}',
+              "workRegion" = '${updateData.workRegion || 'TARAKAN'}',
+              "jobTitle" = '${updateData.jobTitle || ''}',
+              "workPeriod" = '${updateData.workPeriod || ''}',
+              "category" = '${updateData.category || ''}',
+              "notes" = '${updateData.notes || ''}',
+              "updatedAt" = '${new Date()}'
+              WHERE "id" = '${id}'
+              RETURNING *
+            `
+            console.log('Manual query:', manualQuery)
+            const result = await (dbWithRetry as any).$queryRawUnsafe(manualQuery)
+            invoice = Array.isArray(result) ? result[0] : result
+          } catch (manualError) {
+            console.error('Manual query also failed:', manualError)
+            throw manualError
+          }
+        }
         
         // Get the user data
         if (invoice.createdById) {
