@@ -141,7 +141,11 @@ export function InvoiceDetail({ invoice, isOpen, onClose, onUpdate }: InvoiceDet
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(statusUpdate),
+        body: JSON.stringify({
+          status: statusUpdate.status,
+          position: statusUpdate.position,
+          notes: statusUpdate.notes,
+        }),
       })
 
       if (response.ok) {
@@ -169,8 +173,10 @@ export function InvoiceDetail({ invoice, isOpen, onClose, onUpdate }: InvoiceDet
         },
         body: JSON.stringify({
           status: 'SETTLED',
-          ...settlementData,
           settlementDate: settlementData.settlementDate.toISOString(),
+          settlementAmount: parseFloat(settlementData.settlementAmount),
+          paymentMethod: settlementData.paymentMethod,
+          settlementNotes: settlementData.settlementNotes,
         }),
       })
 
