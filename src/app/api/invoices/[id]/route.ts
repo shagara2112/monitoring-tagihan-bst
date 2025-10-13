@@ -165,60 +165,108 @@ export async function PUT(
         )
       }
       
-      // Try a different approach: update fields one by one
-      // This avoids the prepared statement issues
-      const updatedInvoice: any = {}
+      // Try the simplest approach possible - use the original updateData but clean it first
+      const cleanUpdateData: any = {}
       
-      // Only include fields that should be updated
-      // Never include id, createdAt, or createdById
-      if (updateData.clientName) updatedInvoice.clientName = updateData.clientName
-      if (updateData.issueDate) updatedInvoice.issueDate = updateData.issueDate
-      if (updateData.dueDate) updatedInvoice.dueDate = updateData.dueDate
-      if (updateData.totalAmount) updatedInvoice.totalAmount = updateData.totalAmount
-      if (updateData.currency) updatedInvoice.currency = updateData.currency
-      if (updateData.description) updatedInvoice.description = updateData.description
-      if (updateData.status) updatedInvoice.status = updateData.status
-      if (updateData.position) updatedInvoice.position = updateData.position
-      if (updateData.workRegion) updatedInvoice.workRegion = updateData.workRegion
-      if (updateData.jobTitle) updatedInvoice.jobTitle = updateData.jobTitle
-      if (updateData.workPeriod) updatedInvoice.workPeriod = updateData.workPeriod
+      // Only include fields that should be updated and are different from current values
+      if (updateData.clientName && updateData.clientName !== currentInvoice.clientName) {
+        cleanUpdateData.clientName = updateData.clientName
+      }
+      if (updateData.issueDate && updateData.issueDate !== currentInvoice.issueDate) {
+        cleanUpdateData.issueDate = updateData.issueDate
+      }
+      if (updateData.dueDate && updateData.dueDate !== currentInvoice.dueDate) {
+        cleanUpdateData.dueDate = updateData.dueDate
+      }
+      if (updateData.totalAmount && updateData.totalAmount !== currentInvoice.totalAmount) {
+        cleanUpdateData.totalAmount = updateData.totalAmount
+      }
+      if (updateData.currency && updateData.currency !== currentInvoice.currency) {
+        cleanUpdateData.currency = updateData.currency
+      }
+      if (updateData.description && updateData.description !== currentInvoice.description) {
+        cleanUpdateData.description = updateData.description
+      }
+      if (updateData.status && updateData.status !== currentInvoice.status) {
+        cleanUpdateData.status = updateData.status
+      }
+      if (updateData.position && updateData.position !== currentInvoice.position) {
+        cleanUpdateData.position = updateData.position
+        cleanUpdateData.positionUpdatedAt = updateData.positionUpdatedAt
+        cleanUpdateData.positionUpdatedBy = updateData.positionUpdatedBy
+      }
+      if (updateData.workRegion && updateData.workRegion !== currentInvoice.workRegion) {
+        cleanUpdateData.workRegion = updateData.workRegion
+      }
+      if (updateData.jobTitle && updateData.jobTitle !== currentInvoice.jobTitle) {
+        cleanUpdateData.jobTitle = updateData.jobTitle
+      }
+      if (updateData.workPeriod && updateData.workPeriod !== currentInvoice.workPeriod) {
+        cleanUpdateData.workPeriod = updateData.workPeriod
+      }
       
       // Validate category against enum values
-      if (updateData.category) {
+      if (updateData.category && updateData.category !== currentInvoice.category) {
         const validCategories = ['PASANG_BARU', 'ASSURANCE', 'MAINTENANCE', 'OSP', 'SIPIL', 'KONSTRUKSI', 'LAINNYA']
         if (validCategories.includes(updateData.category)) {
-          updatedInvoice.category = updateData.category
+          cleanUpdateData.category = updateData.category
         } else {
           console.warn(`Invalid category value: ${updateData.category}. Skipping update.`)
         }
       }
       
-      if (updateData.notes !== undefined) updatedInvoice.notes = updateData.notes
-      if (updateData.settlementDate) updatedInvoice.settlementDate = updateData.settlementDate
-      if (updateData.settlementAmount) updatedInvoice.settlementAmount = updateData.settlementAmount
-      if (updateData.paymentMethod) updatedInvoice.paymentMethod = updateData.paymentMethod
-      if (updateData.settlementNotes !== undefined) updatedInvoice.settlementNotes = updateData.settlementNotes
-      if (updateData.positionUpdatedAt) updatedInvoice.positionUpdatedAt = updateData.positionUpdatedAt
-      if (updateData.positionUpdatedBy) updatedInvoice.positionUpdatedBy = updateData.positionUpdatedBy
+      if (updateData.notes !== undefined && updateData.notes !== currentInvoice.notes) {
+        cleanUpdateData.notes = updateData.notes
+      }
+      if (updateData.settlementDate && updateData.settlementDate !== currentInvoice.settlementDate) {
+        cleanUpdateData.settlementDate = updateData.settlementDate
+      }
+      if (updateData.settlementAmount && updateData.settlementAmount !== currentInvoice.settlementAmount) {
+        cleanUpdateData.settlementAmount = updateData.settlementAmount
+      }
+      if (updateData.paymentMethod && updateData.paymentMethod !== currentInvoice.paymentMethod) {
+        cleanUpdateData.paymentMethod = updateData.paymentMethod
+      }
+      if (updateData.settlementNotes !== undefined && updateData.settlementNotes !== currentInvoice.settlementNotes) {
+        cleanUpdateData.settlementNotes = updateData.settlementNotes
+      }
       
-      // Always update updatedAt
-      updatedInvoice.updatedAt = new Date()
+      // Always update updatedAt if there are any changes
+      if (Object.keys(cleanUpdateData).length > 0) {
+        cleanUpdateData.updatedAt = new Date()
+      }
       
       // Try to update with Prisma one more time, but with a simpler approach
       try {
-        invoice = await dbWithRetry.invoice.update({
-          where: { id },
-          data: updatedInvoice,
-          include: {
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
+        if (Object.keys(cleanUpdateData).length > 0) {
+          invoice = await dbWithRetry.invoice.update({
+            where: { id },
+            data: cleanUpdateData,
+            include: {
+              createdBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
               },
             },
-          },
-        })
+          })
+        } else {
+          // No changes to make, just return the current invoice
+          invoice = await dbWithRetry.invoice.findUnique({
+            where: { id },
+            include: {
+              createdBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          })
+        }
       } catch (prismaError) {
         console.error('Final Prisma update failed, using fallback:', prismaError)
         
@@ -226,7 +274,7 @@ export async function PUT(
         // This is not ideal but prevents the update from completely failing
         invoice = {
           ...currentInvoice,
-          ...updatedInvoice,
+          ...cleanUpdateData,
           createdBy: undefined, // Will be populated below
         }
         
@@ -319,13 +367,23 @@ export async function PUT(
         for (const record of historyRecords) {
           try {
             const cuid = `c${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
-            await (dbWithRetry as any).$queryRaw`
+            const now = new Date()
+            
+            // Use $queryRawUnsafe with a properly escaped query
+            const escapedOldValue = String(record.oldValue || '').replace(/'/g, "''")
+            const escapedNewValue = String(record.newValue || '').replace(/'/g, "''")
+            const escapedChangedBy = String(record.changedBy || '').replace(/'/g, "''")
+            const escapedNotes = String(record.notes || '').replace(/'/g, "''")
+            
+            const query = `
               INSERT INTO "InvoiceHistory" (
                 id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
               ) VALUES (
-                ${cuid}, ${record.invoiceId}, ${record.field}, ${record.oldValue}, ${record.newValue}, ${record.changedBy}, ${new Date()}, ${record.notes || null}
+                '${cuid}', '${record.invoiceId}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedBy}', '${now.toISOString()}', ${record.notes ? `'${escapedNotes}'` : 'NULL'}
               )
             `
+            
+            await (dbWithRetry as any).$queryRawUnsafe(query)
           } catch (historyRecordError) {
             console.error('Failed to create history record:', historyRecordError)
             // Continue with other records even if one fails
