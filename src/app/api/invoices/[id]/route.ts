@@ -181,7 +181,17 @@ export async function PUT(
       if (updateData.workRegion) updatedInvoice.workRegion = updateData.workRegion
       if (updateData.jobTitle) updatedInvoice.jobTitle = updateData.jobTitle
       if (updateData.workPeriod) updatedInvoice.workPeriod = updateData.workPeriod
-      if (updateData.category) updatedInvoice.category = updateData.category
+      
+      // Validate category against enum values
+      if (updateData.category) {
+        const validCategories = ['PASANG_BARU', 'ASSURANCE', 'MAINTENANCE', 'OSP', 'SIPIL', 'KONSTRUKSI', 'LAINNYA']
+        if (validCategories.includes(updateData.category)) {
+          updatedInvoice.category = updateData.category
+        } else {
+          console.warn(`Invalid category value: ${updateData.category}. Skipping update.`)
+        }
+      }
+      
       if (updateData.notes !== undefined) updatedInvoice.notes = updateData.notes
       if (updateData.settlementDate) updatedInvoice.settlementDate = updateData.settlementDate
       if (updateData.settlementAmount) updatedInvoice.settlementAmount = updateData.settlementAmount
