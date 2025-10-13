@@ -435,10 +435,10 @@ export async function PUT(
       historyRecords.push({
         invoiceId: id,
         field: 'status',
-        oldValue: currentInvoice.status,
+        oldValue: currentInvoice.status || '',
         newValue: status,
         changedBy: user.name || user.email,
-        notes: notes || null,
+        notes: notes || '',
       })
     }
 
@@ -447,10 +447,10 @@ export async function PUT(
       historyRecords.push({
         invoiceId: id,
         field: 'position',
-        oldValue: currentInvoice.position,
+        oldValue: currentInvoice.position || '',
         newValue: position,
         changedBy: user.name || user.email,
-        notes: notes || null,
+        notes: notes || '',
       })
     }
 
