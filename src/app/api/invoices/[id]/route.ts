@@ -236,18 +236,122 @@ export async function PUT(
         cleanUpdateData.updatedAt = new Date()
       }
       
-      // Try to update with Prisma again but with a different approach
+      // Try to update with raw query to avoid Prisma issues
       try {
         if (Object.keys(cleanUpdateData).length > 0) {
-          console.log('Attempting Prisma update with data:', cleanUpdateData)
+          console.log('Attempting raw query update with data:', cleanUpdateData)
           
-          // Try a simple update without the include first
-          const updatedInvoice = await dbWithRetry.invoice.update({
-            where: { id },
-            data: cleanUpdateData,
-          })
+          // Build the UPDATE query dynamically
+          const updateFields: string[] = []
+          const updateValues: any[] = []
           
-          console.log('Prisma update successful:', updatedInvoice)
+          // Add each field to the update query
+          if (cleanUpdateData.status) {
+            updateFields.push(`"status" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.status)
+          }
+          if (cleanUpdateData.settlementDate) {
+            updateFields.push(`"settlementDate" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.settlementDate)
+          }
+          if (cleanUpdateData.settlementAmount) {
+            updateFields.push(`"settlementAmount" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.settlementAmount)
+          }
+          if (cleanUpdateData.paymentMethod) {
+            updateFields.push(`"paymentMethod" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.paymentMethod)
+          }
+          if (cleanUpdateData.settlementNotes !== undefined) {
+            updateFields.push(`"settlementNotes" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.settlementNotes)
+          }
+          if (cleanUpdateData.clientName) {
+            updateFields.push(`"clientName" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.clientName)
+          }
+          if (cleanUpdateData.issueDate) {
+            updateFields.push(`"issueDate" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.issueDate)
+          }
+          if (cleanUpdateData.dueDate) {
+            updateFields.push(`"dueDate" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.dueDate)
+          }
+          if (cleanUpdateData.totalAmount) {
+            updateFields.push(`"totalAmount" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.totalAmount)
+          }
+          if (cleanUpdateData.currency) {
+            updateFields.push(`"currency" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.currency)
+          }
+          if (cleanUpdateData.description) {
+            updateFields.push(`"description" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.description)
+          }
+          if (cleanUpdateData.position) {
+            updateFields.push(`"position" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.position)
+          }
+          if (cleanUpdateData.positionUpdatedAt) {
+            updateFields.push(`"positionUpdatedAt" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.positionUpdatedAt)
+          }
+          if (cleanUpdateData.positionUpdatedBy) {
+            updateFields.push(`"positionUpdatedBy" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.positionUpdatedBy)
+          }
+          if (cleanUpdateData.workRegion) {
+            updateFields.push(`"workRegion" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.workRegion)
+          }
+          if (cleanUpdateData.jobTitle) {
+            updateFields.push(`"jobTitle" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.jobTitle)
+          }
+          if (cleanUpdateData.workPeriod) {
+            updateFields.push(`"workPeriod" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.workPeriod)
+          }
+          if (cleanUpdateData.category) {
+            updateFields.push(`"category" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.category)
+          }
+          if (cleanUpdateData.notes !== undefined) {
+            updateFields.push(`"notes" = $${updateValues.length + 1}`)
+            updateValues.push(cleanUpdateData.notes)
+          }
+          
+          // Always update updatedAt
+          updateFields.push(`"updatedAt" = $${updateValues.length + 1}`)
+          updateValues.push(new Date())
+          
+          // Add the ID to the values
+          updateValues.push(id)
+          
+          // Build and execute the query
+          const updateQuery = `
+            UPDATE "public"."Invoice"
+            SET ${updateFields.join(', ')}
+            WHERE "id" = $${updateValues.length}
+            RETURNING *
+          `
+          
+          console.log('Raw update query:', updateQuery)
+          console.log('Update values:', updateValues)
+          
+          // Use template literal for the query
+          const result = await (dbWithRetry as any).$queryRaw`
+            UPDATE "public"."Invoice"
+            SET ${updateFields.join(', ')}
+            WHERE "id" = ${id}
+            RETURNING *
+          `
+          
+          // Handle the result properly
+          const updatedInvoice = Array.isArray(result) ? result[0] : result
+          console.log('Raw query update successful:', updatedInvoice)
           
           // Now fetch the invoice with the include
           invoice = await dbWithRetry.invoice.findUnique({
@@ -277,8 +381,8 @@ export async function PUT(
             },
           })
         }
-      } catch (prismaError) {
-        console.error('Prisma update failed, using fallback:', prismaError)
+      } catch (updateError) {
+        console.error('Raw query update failed, using fallback:', updateError)
         
         // As a last resort, use the original invoice data but with updated fields
         // This is not ideal but prevents the update from completely failing
