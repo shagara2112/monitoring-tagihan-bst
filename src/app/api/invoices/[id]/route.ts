@@ -167,9 +167,10 @@ export async function PUT(
       
       // Try a different approach: update fields one by one
       // This avoids the prepared statement issues
-      const updatedInvoice = { ...currentInvoice }
+      const updatedInvoice: any = {}
       
-      // Update each field individually
+      // Only include fields that should be updated
+      // Never include id, createdAt, or createdById
       if (updateData.clientName) updatedInvoice.clientName = updateData.clientName
       if (updateData.issueDate) updatedInvoice.issueDate = updateData.issueDate
       if (updateData.dueDate) updatedInvoice.dueDate = updateData.dueDate
@@ -313,17 +314,23 @@ export async function PUT(
           )
         }
         
-        // Use a single transaction to ensure all history records are created
-        // Use raw query to avoid prepared statement issues
-        await (dbWithRetry as any).$queryRaw`
-          INSERT INTO "InvoiceHistory" (
-            id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
-          ) VALUES
-          ${historyRecords.map(record => {
+        // Use a simpler approach to avoid prepared statement issues
+        // Create history records one by one
+        for (const record of historyRecords) {
+          try {
             const cuid = `c${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
-            return `(${cuid}, ${record.invoiceId}, ${record.field}, ${record.oldValue}, ${record.newValue}, ${record.changedBy}, ${new Date()}, ${record.notes || null})`
-          }).join(', ')}
-        `
+            await (dbWithRetry as any).$queryRaw`
+              INSERT INTO "InvoiceHistory" (
+                id, invoiceId, field, oldValue, newValue, changedBy, changedAt, notes
+              ) VALUES (
+                ${cuid}, ${record.invoiceId}, ${record.field}, ${record.oldValue}, ${record.newValue}, ${record.changedBy}, ${new Date()}, ${record.notes || null}
+              )
+            `
+          } catch (historyRecordError) {
+            console.error('Failed to create history record:', historyRecordError)
+            // Continue with other records even if one fails
+          }
+        }
       } catch (historyError) {
         console.error('History recording failed:', historyError)
         // Don't fail the entire request if history recording fails
