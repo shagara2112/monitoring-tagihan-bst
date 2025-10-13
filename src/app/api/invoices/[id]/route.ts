@@ -481,11 +481,15 @@ export async function PUT(
             const escapedNotes = String(record.notes || '').replace(/'/g, "''")
             
             // Use correct column names based on Prisma schema
+            // Make sure changedBy is not null since it's required in the schema
+            const changedByValue = record.changedBy || 'system'
+            const escapedChangedByValue = String(changedByValue).replace(/'/g, "''")
+            
             const query = `
               INSERT INTO "InvoiceHistory" (
                 id, "invoiceId", "field", "oldValue", "newValue", "changedBy", "changedAt", "notes"
               ) VALUES (
-                '${cuid}', '${record.invoiceId}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedBy}', '${now.toISOString()}', ${record.notes ? `'${escapedNotes}'` : 'NULL'}
+                '${cuid}', '${record.invoiceId}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedByValue}', '${now.toISOString()}', ${record.notes ? `'${escapedNotes}'` : ''}
               )
             `
             
