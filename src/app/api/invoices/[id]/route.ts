@@ -404,6 +404,9 @@ export async function PUT(
           })
           invoice.createdBy = user
         }
+        
+        // Add a warning that the update was only in memory
+        console.warn('Invoice update was only in memory due to database issues')
       }
     } catch (updateError) {
       console.error('Error during invoice update:', updateError)
