@@ -241,107 +241,92 @@ export async function PUT(
         if (Object.keys(cleanUpdateData).length > 0) {
           console.log('Attempting raw query update with data:', cleanUpdateData)
           
-          // Build the UPDATE query dynamically
+          // Build the UPDATE query dynamically with actual values
           const updateFields: string[] = []
-          const updateValues: any[] = []
           
-          // Add each field to the update query
+          // Add each field to the update query with proper escaping
           if (cleanUpdateData.status) {
-            updateFields.push(`"status" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.status)
+            const escapedValue = String(cleanUpdateData.status).replace(/'/g, "''")
+            updateFields.push(`"status" = '${escapedValue}'`)
           }
           if (cleanUpdateData.settlementDate) {
-            updateFields.push(`"settlementDate" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.settlementDate)
+            const escapedValue = cleanUpdateData.settlementDate.toISOString()
+            updateFields.push(`"settlementDate" = '${escapedValue}'`)
           }
           if (cleanUpdateData.settlementAmount) {
-            updateFields.push(`"settlementAmount" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.settlementAmount)
+            const escapedValue = String(cleanUpdateData.settlementAmount)
+            updateFields.push(`"settlementAmount" = ${escapedValue}`)
           }
           if (cleanUpdateData.paymentMethod) {
-            updateFields.push(`"paymentMethod" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.paymentMethod)
+            const escapedValue = String(cleanUpdateData.paymentMethod).replace(/'/g, "''")
+            updateFields.push(`"paymentMethod" = '${escapedValue}'`)
           }
           if (cleanUpdateData.settlementNotes !== undefined) {
-            updateFields.push(`"settlementNotes" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.settlementNotes)
+            const escapedValue = String(cleanUpdateData.settlementNotes || '').replace(/'/g, "''")
+            updateFields.push(`"settlementNotes" = '${escapedValue}'`)
           }
           if (cleanUpdateData.clientName) {
-            updateFields.push(`"clientName" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.clientName)
+            const escapedValue = String(cleanUpdateData.clientName).replace(/'/g, "''")
+            updateFields.push(`"clientName" = '${escapedValue}'`)
           }
           if (cleanUpdateData.issueDate) {
-            updateFields.push(`"issueDate" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.issueDate)
+            const escapedValue = cleanUpdateData.issueDate.toISOString()
+            updateFields.push(`"issueDate" = '${escapedValue}'`)
           }
           if (cleanUpdateData.dueDate) {
-            updateFields.push(`"dueDate" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.dueDate)
+            const escapedValue = cleanUpdateData.dueDate.toISOString()
+            updateFields.push(`"dueDate" = '${escapedValue}'`)
           }
           if (cleanUpdateData.totalAmount) {
-            updateFields.push(`"totalAmount" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.totalAmount)
+            const escapedValue = String(cleanUpdateData.totalAmount)
+            updateFields.push(`"totalAmount" = ${escapedValue}`)
           }
           if (cleanUpdateData.currency) {
-            updateFields.push(`"currency" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.currency)
+            const escapedValue = String(cleanUpdateData.currency).replace(/'/g, "''")
+            updateFields.push(`"currency" = '${escapedValue}'`)
           }
           if (cleanUpdateData.description) {
-            updateFields.push(`"description" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.description)
+            const escapedValue = String(cleanUpdateData.description).replace(/'/g, "''")
+            updateFields.push(`"description" = '${escapedValue}'`)
           }
           if (cleanUpdateData.position) {
-            updateFields.push(`"position" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.position)
+            const escapedValue = String(cleanUpdateData.position).replace(/'/g, "''")
+            updateFields.push(`"position" = '${escapedValue}'`)
           }
           if (cleanUpdateData.positionUpdatedAt) {
-            updateFields.push(`"positionUpdatedAt" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.positionUpdatedAt)
+            const escapedValue = cleanUpdateData.positionUpdatedAt.toISOString()
+            updateFields.push(`"positionUpdatedAt" = '${escapedValue}'`)
           }
           if (cleanUpdateData.positionUpdatedBy) {
-            updateFields.push(`"positionUpdatedBy" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.positionUpdatedBy)
+            const escapedValue = String(cleanUpdateData.positionUpdatedBy).replace(/'/g, "''")
+            updateFields.push(`"positionUpdatedBy" = '${escapedValue}'`)
           }
           if (cleanUpdateData.workRegion) {
-            updateFields.push(`"workRegion" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.workRegion)
+            const escapedValue = String(cleanUpdateData.workRegion).replace(/'/g, "''")
+            updateFields.push(`"workRegion" = '${escapedValue}'`)
           }
           if (cleanUpdateData.jobTitle) {
-            updateFields.push(`"jobTitle" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.jobTitle)
+            const escapedValue = String(cleanUpdateData.jobTitle).replace(/'/g, "''")
+            updateFields.push(`"jobTitle" = '${escapedValue}'`)
           }
           if (cleanUpdateData.workPeriod) {
-            updateFields.push(`"workPeriod" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.workPeriod)
+            const escapedValue = String(cleanUpdateData.workPeriod).replace(/'/g, "''")
+            updateFields.push(`"workPeriod" = '${escapedValue}'`)
           }
           if (cleanUpdateData.category) {
-            updateFields.push(`"category" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.category)
+            const escapedValue = String(cleanUpdateData.category).replace(/'/g, "''")
+            updateFields.push(`"category" = '${escapedValue}'`)
           }
           if (cleanUpdateData.notes !== undefined) {
-            updateFields.push(`"notes" = $${updateValues.length + 1}`)
-            updateValues.push(cleanUpdateData.notes)
+            const escapedValue = String(cleanUpdateData.notes || '').replace(/'/g, "''")
+            updateFields.push(`"notes" = '${escapedValue}'`)
           }
           
           // Always update updatedAt
-          updateFields.push(`"updatedAt" = $${updateValues.length + 1}`)
-          updateValues.push(new Date())
-          
-          // Add the ID to the values
-          updateValues.push(id)
+          const now = new Date().toISOString()
+          updateFields.push(`"updatedAt" = '${now}'`)
           
           // Build and execute the query
-          const updateQuery = `
-            UPDATE "public"."Invoice"
-            SET ${updateFields.join(', ')}
-            WHERE "id" = $${updateValues.length}
-            RETURNING *
-          `
-          
-          console.log('Raw update query:', updateQuery)
-          console.log('Update values:', updateValues)
-          
-          // Use $queryRawUnsafe for the query
           const query = `
             UPDATE "public"."Invoice"
             SET ${updateFields.join(', ')}
