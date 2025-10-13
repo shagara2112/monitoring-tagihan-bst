@@ -489,7 +489,7 @@ export async function PUT(
               INSERT INTO "InvoiceHistory" (
                 id, "invoiceId", "field", "oldValue", "newValue", "changedBy", "changedAt", "notes"
               ) VALUES (
-                '${cuid}', '${record.invoiceId}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedByValue}', '${now.toISOString()}', ${record.notes ? `'${escapedNotes}'` : ''}
+                '${cuid}', '${record.invoiceId}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedByValue}', '${now.toISOString()}', '${escapedNotes}'
               )
             `
             
