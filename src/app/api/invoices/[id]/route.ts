@@ -140,7 +140,8 @@ export async function PUT(
     if (position && position !== currentInvoice.position) {
       updateData.position = position
       updateData.positionUpdatedAt = new Date()
-      updateData.positionUpdatedBy = user.name || user.email
+      // Ensure positionUpdatedBy is not null
+      updateData.positionUpdatedBy = user?.name || user?.email || 'system'
     }
 
     // Make sure ID is valid before proceeding
