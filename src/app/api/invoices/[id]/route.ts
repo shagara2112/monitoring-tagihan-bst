@@ -327,15 +327,61 @@ export async function PUT(
           updateFields.push(`"updatedAt" = '${now}'`)
           
           // Build and execute the query
+          const updateClause = updateFields.join(', ')
           const query = `
             UPDATE "public"."Invoice"
-            SET ${updateFields.join(', ')}
+            SET ${updateClause}
             WHERE "id" = '${id}'
             RETURNING *
           `
           
           console.log('Executing raw query:', query)
-          const result = await (dbWithRetry as any).$queryRawUnsafe(query)
+          console.log('Update clause:', updateClause)
+          
+          let result
+          try {
+            result = await (dbWithRetry as any).$queryRawUnsafe(query)
+            // Handle the result properly
+            const updatedInvoice = Array.isArray(result) ? result[0] : result
+            console.log('Raw query update successful:', updatedInvoice)
+          } catch (rawQueryError) {
+            console.error('Raw query failed with error:', rawQueryError)
+            
+            // Try using Prisma instead of raw query
+            console.log('Attempting to update with Prisma instead')
+            const prismaUpdateData: any = {}
+            
+            // Rebuild update data for Prisma
+            if (cleanUpdateData.status) {
+              prismaUpdateData.status = cleanUpdateData.status
+            }
+            if (cleanUpdateData.issueDate) {
+              prismaUpdateData.issueDate = cleanUpdateData.issueDate
+            }
+            if (cleanUpdateData.dueDate) {
+              prismaUpdateData.dueDate = cleanUpdateData.dueDate
+            }
+            if (cleanUpdateData.position) {
+              prismaUpdateData.position = cleanUpdateData.position
+            }
+            if (cleanUpdateData.positionUpdatedAt) {
+              prismaUpdateData.positionUpdatedAt = cleanUpdateData.positionUpdatedAt
+            }
+            if (cleanUpdateData.positionUpdatedBy) {
+              prismaUpdateData.positionUpdatedBy = cleanUpdateData.positionUpdatedBy
+            }
+            if (cleanUpdateData.updatedAt) {
+              prismaUpdateData.updatedAt = cleanUpdateData.updatedAt
+            }
+            
+            console.log('Prisma update data:', prismaUpdateData)
+            await dbWithRetry.invoice.update({
+              where: { id },
+              data: prismaUpdateData
+            })
+            
+            console.log('Prisma update successful')
+          }
           
           // Handle the result properly
           const updatedInvoice = Array.isArray(result) ? result[0] : result
