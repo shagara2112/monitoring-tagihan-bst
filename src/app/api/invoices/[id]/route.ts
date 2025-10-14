@@ -195,6 +195,10 @@ export async function PUT(
         cleanUpdateData.position = updateData.position
         cleanUpdateData.positionUpdatedAt = updateData.positionUpdatedAt
         cleanUpdateData.positionUpdatedBy = updateData.positionUpdatedBy
+      } else if (!currentInvoice.positionUpdatedAt) {
+        // If positionUpdatedAt is null in the current invoice, set it to a default value
+        cleanUpdateData.positionUpdatedAt = new Date()
+        cleanUpdateData.positionUpdatedBy = user?.name || user?.email || 'system'
       }
       if (updateData.workRegion && updateData.workRegion !== currentInvoice.workRegion) {
         cleanUpdateData.workRegion = updateData.workRegion
