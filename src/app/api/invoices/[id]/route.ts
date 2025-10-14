@@ -548,6 +548,10 @@ export async function PUT(
     // Create history records for status and position changes
     const historyRecords: any[] = []
 
+    // Get a valid changedBy value
+    const changedByValue = user?.name || user?.email || 'system'
+    const safeChangedByValue = String(changedByValue).replace(/'/g, "''")
+
     // Add status change history
     if (status && status !== currentInvoice.status) {
       historyRecords.push({
@@ -555,7 +559,7 @@ export async function PUT(
         field: 'status',
         oldValue: currentInvoice.status || '',
         newValue: status,
-        changedBy: user.name || user.email,
+        changedBy: safeChangedByValue,
         notes: notes || '',
       })
     }
@@ -567,7 +571,7 @@ export async function PUT(
         field: 'position',
         oldValue: currentInvoice.position || '',
         newValue: position,
-        changedBy: user.name || user.email,
+        changedBy: safeChangedByValue,
         notes: notes || '',
       })
     }
