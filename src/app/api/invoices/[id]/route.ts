@@ -375,8 +375,16 @@ export async function PUT(
             }
             
             console.log('Prisma update data:', prismaUpdateData)
+            console.log('Prisma update invoice ID:', id)
+            
+            // Double-check ID is not null or empty
+            if (!id || id.trim() === '') {
+              console.error('Cannot update with Prisma: Invalid invoice ID')
+              throw new Error('Invoice ID cannot be null or empty for Prisma update')
+            }
+            
             await dbWithRetry.invoice.update({
-              where: { id },
+              where: { id: id.trim() },
               data: prismaUpdateData
             })
             
