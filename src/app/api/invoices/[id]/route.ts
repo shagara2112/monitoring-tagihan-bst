@@ -351,15 +351,25 @@ export async function PUT(
           
           // Build and execute the query
           const updateClause = updateFields.join(', ')
+          
+          // Make sure we have at least the updatedAt field
+          if (!updateClause.includes('"updatedAt"')) {
+            const now = new Date().toISOString()
+            updateFields.push(`"updatedAt" = '${now}'`)
+          }
+          
+          // Rebuild the update clause with updatedAt field included
+          const finalUpdateClause = updateFields.join(', ')
           const query = `
             UPDATE "public"."Invoice"
-            SET ${updateClause}
+            SET ${finalUpdateClause}
             WHERE "id" = '${cleanId}'
             RETURNING *
           `
           
           console.log('Executing raw query:', query)
-          console.log('Update clause:', updateClause)
+          console.log('Update clause:', finalUpdateClause)
+          console.log('Update fields:', updateFields)
           
           let result
           try {
@@ -378,12 +388,15 @@ export async function PUT(
               
               console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
               
+              // Log the query before execution
+              console.log('About to execute raw query in transaction:', query)
+              
               // Then execute the raw query
               const updateResult = await tx.$queryRawUnsafe(query)
               console.log('Raw query update in transaction successful:', updateResult)
               return updateResult
             })
-            
+           
             // Handle the result properly
             const updatedInvoice = Array.isArray(result) ? result[0] : result
             console.log('Raw query update successful:', updatedInvoice)
