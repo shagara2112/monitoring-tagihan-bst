@@ -335,6 +335,19 @@ export async function PUT(
           const cleanId = id.trim()
           console.log('Using clean invoice ID for update:', cleanId)
           
+          // Verify the invoice exists before attempting to update
+          const existingInvoice = await dbWithRetry.invoice.findUnique({
+            where: { id: cleanId },
+            select: { id: true }
+          })
+          
+          if (!existingInvoice) {
+            console.error('Cannot update: Invoice does not exist with ID:', cleanId)
+            throw new Error('Invoice does not exist with ID: ' + cleanId)
+          }
+          
+          console.log('Verified invoice exists with ID:', existingInvoice.id)
+          
           // Build and execute the query
           const updateClause = updateFields.join(', ')
           const query = `
@@ -391,6 +404,19 @@ export async function PUT(
               console.error('Cannot update with Prisma: Invalid invoice ID')
               throw new Error('Invoice ID cannot be null or empty for Prisma update')
             }
+            
+            // Verify the invoice exists again before Prisma update
+            const existingInvoiceForPrisma = await dbWithRetry.invoice.findUnique({
+              where: { id: cleanId },
+              select: { id: true }
+            })
+            
+            if (!existingInvoiceForPrisma) {
+              console.error('Cannot update with Prisma: Invoice does not exist with ID:', cleanId)
+              throw new Error('Invoice does not exist with ID: ' + cleanId)
+            }
+            
+            console.log('Verified invoice exists for Prisma update with ID:', existingInvoiceForPrisma.id)
             
             await dbWithRetry.invoice.update({
               where: { id: cleanId },
