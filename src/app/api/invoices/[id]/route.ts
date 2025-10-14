@@ -362,7 +362,27 @@ export async function PUT(
           
           let result
           try {
-            result = await (dbWithRetry as any).$queryRawUnsafe(query)
+            // Use a transaction to ensure atomicity
+            result = await (dbWithRetry as any).$transaction(async (tx: any) => {
+              // First verify the invoice exists in the transaction
+              const invoiceInTx = await tx.invoice.findUnique({
+                where: { id: cleanId },
+                select: { id: true }
+              })
+              
+              if (!invoiceInTx) {
+                console.error('Cannot update in transaction: Invoice does not exist with ID:', cleanId)
+                throw new Error('Invoice does not exist with ID: ' + cleanId)
+              }
+              
+              console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
+              
+              // Then execute the raw query
+              const updateResult = await tx.$queryRawUnsafe(query)
+              console.log('Raw query update in transaction successful:', updateResult)
+              return updateResult
+            })
+            
             // Handle the result properly
             const updatedInvoice = Array.isArray(result) ? result[0] : result
             console.log('Raw query update successful:', updatedInvoice)
@@ -405,25 +425,34 @@ export async function PUT(
               throw new Error('Invoice ID cannot be null or empty for Prisma update')
             }
             
-            // Verify the invoice exists again before Prisma update
-            const existingInvoiceForPrisma = await dbWithRetry.invoice.findUnique({
-              where: { id: cleanId },
-              select: { id: true }
-            })
-            
-            if (!existingInvoiceForPrisma) {
-              console.error('Cannot update with Prisma: Invoice does not exist with ID:', cleanId)
-              throw new Error('Invoice does not exist with ID: ' + cleanId)
+            // Use a transaction for Prisma update as well
+            try {
+              await (dbWithRetry as any).$transaction(async (tx: any) => {
+                // First verify the invoice exists in the transaction
+                const invoiceInTx = await tx.invoice.findUnique({
+                  where: { id: cleanId },
+                  select: { id: true }
+                })
+                
+                if (!invoiceInTx) {
+                  console.error('Cannot update with Prisma in transaction: Invoice does not exist with ID:', cleanId)
+                  throw new Error('Invoice does not exist with ID: ' + cleanId)
+                }
+                
+                console.log('Verified invoice exists for Prisma update in transaction with ID:', invoiceInTx.id)
+                
+                // Then execute the Prisma update
+                await tx.invoice.update({
+                  where: { id: cleanId },
+                  data: prismaUpdateData
+                })
+                
+                console.log('Prisma update in transaction successful')
+              })
+            } catch (prismaTxError) {
+              console.error('Prisma transaction failed with error:', prismaTxError)
+              throw prismaTxError
             }
-            
-            console.log('Verified invoice exists for Prisma update with ID:', existingInvoiceForPrisma.id)
-            
-            await dbWithRetry.invoice.update({
-              where: { id: cleanId },
-              data: prismaUpdateData
-            })
-            
-            console.log('Prisma update successful')
           }
           
           // Handle the result properly
