@@ -371,6 +371,25 @@ export async function PUT(
           console.log('Update clause:', finalUpdateClause)
           console.log('Update fields:', updateFields)
           
+          // Log the current invoice data for debugging
+          console.log('Current invoice data:', {
+            id: currentInvoice.id,
+            status: currentInvoice.status,
+            position: currentInvoice.position,
+            positionUpdatedAt: currentInvoice.positionUpdatedAt,
+            positionUpdatedBy: currentInvoice.positionUpdatedBy,
+            updatedAt: currentInvoice.updatedAt
+          })
+          
+          // Log the update data for debugging
+          console.log('Update data being applied:', {
+            status: cleanUpdateData.status,
+            position: cleanUpdateData.position,
+            positionUpdatedAt: cleanUpdateData.positionUpdatedAt,
+            positionUpdatedBy: cleanUpdateData.positionUpdatedBy,
+            updatedAt: cleanUpdateData.updatedAt
+          })
+          
           let result
           try {
             // Use a transaction to ensure atomicity
