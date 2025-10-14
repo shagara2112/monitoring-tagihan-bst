@@ -326,12 +326,21 @@ export async function PUT(
           const now = new Date().toISOString()
           updateFields.push(`"updatedAt" = '${now}'`)
           
+          // Double-check ID is not null or empty before any update
+          if (!id || id.trim() === '') {
+            console.error('Cannot update: Invalid invoice ID')
+            throw new Error('Invoice ID cannot be null or empty for update')
+          }
+          
+          const cleanId = id.trim()
+          console.log('Using clean invoice ID for update:', cleanId)
+          
           // Build and execute the query
           const updateClause = updateFields.join(', ')
           const query = `
             UPDATE "public"."Invoice"
             SET ${updateClause}
-            WHERE "id" = '${id}'
+            WHERE "id" = '${cleanId}'
             RETURNING *
           `
           
@@ -375,16 +384,16 @@ export async function PUT(
             }
             
             console.log('Prisma update data:', prismaUpdateData)
-            console.log('Prisma update invoice ID:', id)
+            console.log('Prisma update invoice ID:', cleanId)
             
             // Double-check ID is not null or empty
-            if (!id || id.trim() === '') {
+            if (!cleanId || cleanId.trim() === '') {
               console.error('Cannot update with Prisma: Invalid invoice ID')
               throw new Error('Invoice ID cannot be null or empty for Prisma update')
             }
             
             await dbWithRetry.invoice.update({
-              where: { id: id.trim() },
+              where: { id: cleanId },
               data: prismaUpdateData
             })
             
