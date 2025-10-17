@@ -654,8 +654,21 @@ export async function PUT(
         // Create history records one by one
         for (const record of historyRecords) {
           try {
+            // Generate a proper CUID for the history record
             const cuid = `c${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
             const now = new Date()
+            
+            // Log the history record for debugging
+            console.log('Creating history record:', {
+              id: cuid,
+              invoiceId: record.invoiceId,
+              field: record.field,
+              oldValue: record.oldValue,
+              newValue: record.newValue,
+              changedBy: record.changedBy,
+              changedAt: now.toISOString(),
+              notes: record.notes
+            })
             
             // Use $queryRawUnsafe with a properly escaped query
             const escapedOldValue = String(record.oldValue || '').replace(/'/g, "''")
@@ -668,13 +681,19 @@ export async function PUT(
             const changedByValue = record.changedBy || 'system'
             const escapedChangedByValue = String(changedByValue).replace(/'/g, "''")
             
+            // Make sure the invoice ID is not null
+            const invoiceIdValue = record.invoiceId || ''
+            const escapedInvoiceIdValue = String(invoiceIdValue).replace(/'/g, "''")
+            
             const query = `
               INSERT INTO "InvoiceHistory" (
                 id, "invoiceId", "field", "oldValue", "newValue", "changedBy", "changedAt", "notes"
               ) VALUES (
-                '${cuid}', '${record.invoiceId}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedByValue}', '${now.toISOString()}', '${escapedNotes}'
+                '${cuid}', '${escapedInvoiceIdValue}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedByValue}', '${now.toISOString()}', '${escapedNotes}'
               )
             `
+            
+            console.log('Executing history record query:', query)
             
             await (dbWithRetry as any).$queryRawUnsafe(query)
           } catch (historyRecordError) {
