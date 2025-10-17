@@ -254,11 +254,15 @@ export async function PUT(
           
           const cleanId = id.trim()
           console.log('Using clean invoice ID for update:', cleanId)
+          console.log('Original invoice ID:', id)
+          console.log('Clean invoice ID:', cleanId)
+          console.log('Type of clean invoice ID:', typeof cleanId)
+          console.log('Length of clean invoice ID:', cleanId.length)
           
           // Verify the invoice exists before attempting to update
           const existingInvoice = await dbWithRetry.invoice.findUnique({
             where: { id: cleanId },
-            select: { id: true }
+            select: { id: true, createdById: true }
           })
           
           if (!existingInvoice) {
@@ -267,6 +271,7 @@ export async function PUT(
           }
           
           console.log('Verified invoice exists with ID:', existingInvoice.id)
+          console.log('Invoice createdById:', existingInvoice.createdById)
           
           // Log the current invoice data for debugging
           console.log('Current invoice data:', {
@@ -287,12 +292,18 @@ export async function PUT(
             updatedAt: cleanUpdateData.updatedAt
           })
           
+          // Make sure we don't include createdById in the update data
+          const updateDataWithoutCreatedById = { ...cleanUpdateData }
+          delete updateDataWithoutCreatedById.createdById
+          
+          console.log('Update data without createdById:', updateDataWithoutCreatedById)
+          
           // Use a transaction to ensure atomicity
           await (dbWithRetry as any).$transaction(async (tx: any) => {
             // First verify the invoice exists in the transaction
             const invoiceInTx = await tx.invoice.findUnique({
               where: { id: cleanId },
-              select: { id: true }
+              select: { id: true, createdById: true }
             })
             
             if (!invoiceInTx) {
@@ -301,11 +312,12 @@ export async function PUT(
             }
             
             console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
+            console.log('Invoice in transaction createdById:', invoiceInTx.createdById)
             
             // Execute the Prisma update
             await tx.invoice.update({
               where: { id: cleanId },
-              data: cleanUpdateData
+              data: updateDataWithoutCreatedById
             })
             
             console.log('Prisma update in transaction successful')
