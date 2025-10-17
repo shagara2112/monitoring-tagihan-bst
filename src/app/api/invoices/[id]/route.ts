@@ -336,8 +336,8 @@ export async function PUT(
           
           console.log('Executing raw query:', query)
           
-          // Execute the raw query
-          await (dbWithRetry as any).$executeRawUnsafe(query)
+          // Execute the raw query using the direct db client
+          await db.$executeRawUnsafe(query)
           
           console.log('Raw query update successful')
           
