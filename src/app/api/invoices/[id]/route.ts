@@ -612,6 +612,30 @@ export async function PUT(
         notes: notes || '',
       })
     }
+    
+    // Add positionUpdatedAt change history if it was null and is now set
+    if (!currentInvoice.positionUpdatedAt && updateData.positionUpdatedAt) {
+      historyRecords.push({
+        invoiceId: id,
+        field: 'positionUpdatedAt',
+        oldValue: '',
+        newValue: updateData.positionUpdatedAt.toISOString(),
+        changedBy: safeChangedByValue,
+        notes: 'Set initial position update timestamp',
+      })
+    }
+    
+    // Add positionUpdatedBy change history if it was null and is now set
+    if (!currentInvoice.positionUpdatedBy && updateData.positionUpdatedBy) {
+      historyRecords.push({
+        invoiceId: id,
+        field: 'positionUpdatedBy',
+        oldValue: '',
+        newValue: updateData.positionUpdatedBy,
+        changedBy: safeChangedByValue,
+        notes: 'Set initial position update user',
+      })
+    }
 
     // Create history records if there are changes
     // Always use raw query to avoid prepared statement issues
