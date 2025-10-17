@@ -300,6 +300,92 @@ export async function PUT(
             console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
             console.log('Invoice in transaction createdById:', invoiceInTx.createdById)
             
+            // Create history records first to track the changes
+            const historyRecords: any[] = []
+            
+            // Get a valid changedBy value
+            const changedByValue = user?.name || user?.email || 'system'
+            const safeChangedByValue = String(changedByValue).replace(/'/g, "''")
+            
+            // Add status change history if status is being updated
+            if (cleanUpdateData.status && cleanUpdateData.status !== currentInvoice.status) {
+              historyRecords.push({
+                invoiceId: cleanId,
+                field: 'status',
+                oldValue: currentInvoice.status || '',
+                newValue: cleanUpdateData.status,
+                changedBy: safeChangedByValue,
+                notes: notes || '',
+              })
+            }
+            
+            // Add position change history if position is being updated
+            if (cleanUpdateData.position && cleanUpdateData.position !== currentInvoice.position) {
+              historyRecords.push({
+                invoiceId: cleanId,
+                field: 'position',
+                oldValue: currentInvoice.position || '',
+                newValue: cleanUpdateData.position,
+                changedBy: safeChangedByValue,
+                notes: notes || '',
+              })
+            }
+            
+            // Add positionUpdatedAt change history if it was null and is now set
+            if (!currentInvoice.positionUpdatedAt && cleanUpdateData.positionUpdatedAt) {
+              historyRecords.push({
+                invoiceId: cleanId,
+                field: 'positionUpdatedAt',
+                oldValue: '',
+                newValue: cleanUpdateData.positionUpdatedAt.toISOString(),
+                changedBy: safeChangedByValue,
+                notes: 'Set initial position update timestamp',
+              })
+            }
+            
+            // Add positionUpdatedBy change history if it was null and is now set
+            if (!currentInvoice.positionUpdatedBy && cleanUpdateData.positionUpdatedBy) {
+              historyRecords.push({
+                invoiceId: cleanId,
+                field: 'positionUpdatedBy',
+                oldValue: '',
+                newValue: cleanUpdateData.positionUpdatedBy,
+                changedBy: safeChangedByValue,
+                notes: 'Set initial position update user',
+              })
+            }
+            
+            // Create all history records
+            for (const record of historyRecords) {
+              const timestamp = Date.now().toString(36)
+              const randomPart = Math.random().toString(36).substring(2, 15)
+              const cuid = `c${timestamp}${randomPart}`
+              
+              console.log('Creating history record:', {
+                id: cuid,
+                invoiceId: record.invoiceId,
+                field: record.field,
+                oldValue: record.oldValue,
+                newValue: record.newValue,
+                changedBy: record.changedBy,
+                changedAt: new Date().toISOString(),
+                notes: record.notes
+              })
+              
+              await tx.invoiceHistory.create({
+                data: {
+                  id: cuid,
+                  invoiceId: record.invoiceId,
+                  field: record.field,
+                  oldValue: record.oldValue,
+                  newValue: record.newValue,
+                  changedBy: record.changedBy,
+                  changedAt: new Date(),
+                  notes: record.notes,
+                }
+              })
+            }
+            
             // Execute the Prisma update in the transaction
             await tx.invoice.update({
               where: { id: cleanId },
