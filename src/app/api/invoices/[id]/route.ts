@@ -331,6 +331,15 @@ export async function PUT(
           const now = new Date().toISOString()
           updateFields.push(`"updatedAt" = '${now}'`)
           
+          // Make sure we have at least one field to update
+          if (updateFields.length === 0) {
+            console.warn('No fields to update in invoice')
+            throw new Error('No fields to update in invoice')
+          }
+          
+          // Log the final update fields for debugging
+          console.log('Final update fields:', updateFields)
+          
           // Double-check ID is not null or empty before any update
           if (!id || id.trim() === '') {
             console.error('Cannot update: Invalid invoice ID')
