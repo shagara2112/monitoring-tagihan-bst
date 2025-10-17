@@ -241,10 +241,10 @@ export async function PUT(
         cleanUpdateData.updatedAt = new Date()
       }
       
-      // Try to update with Prisma to avoid raw query trigger issues
+      // Try to update with a transaction to ensure atomicity
       try {
         if (Object.keys(cleanUpdateData).length > 0) {
-          console.log('Attempting Prisma update with data:', cleanUpdateData)
+          console.log('Attempting transaction update with data:', cleanUpdateData)
           
           // Double-check ID is not null or empty before any update
           if (!id || id.trim() === '') {
@@ -258,20 +258,6 @@ export async function PUT(
           console.log('Clean invoice ID:', cleanId)
           console.log('Type of clean invoice ID:', typeof cleanId)
           console.log('Length of clean invoice ID:', cleanId.length)
-          
-          // Verify the invoice exists before attempting to update
-          const existingInvoice = await dbWithRetry.invoice.findUnique({
-            where: { id: cleanId },
-            select: { id: true, createdById: true }
-          })
-          
-          if (!existingInvoice) {
-            console.error('Cannot update: Invoice does not exist with ID:', cleanId)
-            throw new Error('Invoice does not exist with ID: ' + cleanId)
-          }
-          
-          console.log('Verified invoice exists with ID:', existingInvoice.id)
-          console.log('Invoice createdById:', existingInvoice.createdById)
           
           // Log the current invoice data for debugging
           console.log('Current invoice data:', {
@@ -298,13 +284,32 @@ export async function PUT(
           
           console.log('Update data without createdById:', updateDataWithoutCreatedById)
           
-          // Execute the Prisma update
-          await db.invoice.update({
-            where: { id: cleanId },
-            data: updateDataWithoutCreatedById
+          // Use a transaction to ensure atomicity
+          await db.$transaction(async (tx) => {
+            // First verify the invoice exists in the transaction
+            const invoiceInTx = await tx.invoice.findUnique({
+              where: { id: cleanId },
+              select: { id: true, createdById: true }
+            })
+            
+            if (!invoiceInTx) {
+              console.error('Cannot update in transaction: Invoice does not exist with ID:', cleanId)
+              throw new Error('Invoice does not exist with ID: ' + cleanId)
+            }
+            
+            console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
+            console.log('Invoice in transaction createdById:', invoiceInTx.createdById)
+            
+            // Execute the Prisma update in the transaction
+            await tx.invoice.update({
+              where: { id: cleanId },
+              data: updateDataWithoutCreatedById
+            })
+            
+            console.log('Prisma update in transaction successful')
           })
           
-          console.log('Prisma update successful')
+          console.log('Transaction update successful')
           
           // Now fetch the invoice with the include
           invoice = await dbWithRetry.invoice.findUnique({
@@ -320,7 +325,7 @@ export async function PUT(
             },
           })
           
-          console.log('Prisma update successful:', invoice)
+          console.log('Transaction update successful:', invoice)
         } else {
           // No changes to make, just return the current invoice
           invoice = await dbWithRetry.invoice.findUnique({
@@ -337,7 +342,7 @@ export async function PUT(
           })
         }
       } catch (updateError) {
-        console.error('Prisma update failed, using fallback:', updateError)
+        console.error('Transaction update failed, using fallback:', updateError)
         
         // As a last resort, use the original invoice data but with updated fields
         // This is not ideal but prevents the update from completely failing
