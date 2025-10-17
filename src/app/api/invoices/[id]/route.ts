@@ -655,7 +655,10 @@ export async function PUT(
         for (const record of historyRecords) {
           try {
             // Generate a proper CUID for the history record
-            const cuid = `c${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
+            // Make sure the ID is valid and not null
+            const timestamp = Date.now().toString(36)
+            const randomPart = Math.random().toString(36).substring(2, 15)
+            const cuid = `c${timestamp}${randomPart}`
             const now = new Date()
             
             // Log the history record for debugging
@@ -669,6 +672,27 @@ export async function PUT(
               changedAt: now.toISOString(),
               notes: record.notes
             })
+            
+            // Check if any required field is null
+            if (!cuid) {
+              console.error('Generated CUID is null, cannot create history record')
+              throw new Error('Generated CUID is null, cannot create history record')
+            }
+            
+            if (!record.invoiceId) {
+              console.error('Invoice ID is null, cannot create history record')
+              throw new Error('Invoice ID is null, cannot create history record')
+            }
+            
+            if (!record.field) {
+              console.error('Field is null, cannot create history record')
+              throw new Error('Field is null, cannot create history record')
+            }
+            
+            if (!record.newValue) {
+              console.error('New value is null, cannot create history record')
+              throw new Error('New value is null, cannot create history record')
+            }
             
             // Use $queryRawUnsafe with a properly escaped query
             const escapedOldValue = String(record.oldValue || '').replace(/'/g, "''")
@@ -685,11 +709,18 @@ export async function PUT(
             const invoiceIdValue = record.invoiceId || ''
             const escapedInvoiceIdValue = String(invoiceIdValue).replace(/'/g, "''")
             
+            // Make sure the field value is not null
+            const fieldValue = record.field || ''
+            const escapedFieldValue = String(fieldValue).replace(/'/g, "''")
+            
+            // Make sure the CUID is not null
+            const escapedCuid = String(cuid).replace(/'/g, "''")
+            
             const query = `
               INSERT INTO "InvoiceHistory" (
                 id, "invoiceId", "field", "oldValue", "newValue", "changedBy", "changedAt", "notes"
               ) VALUES (
-                '${cuid}', '${escapedInvoiceIdValue}', '${record.field}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedByValue}', '${now.toISOString()}', '${escapedNotes}'
+                '${escapedCuid}', '${escapedInvoiceIdValue}', '${escapedFieldValue}', '${escapedOldValue}', '${escapedNewValue}', '${escapedChangedByValue}', '${now.toISOString()}', '${escapedNotes}'
               )
             `
             
