@@ -241,104 +241,10 @@ export async function PUT(
         cleanUpdateData.updatedAt = new Date()
       }
       
-      // Try to update with raw query to avoid Prisma issues
+      // Try to update with Prisma directly to avoid raw query issues
       try {
         if (Object.keys(cleanUpdateData).length > 0) {
-          console.log('Attempting raw query update with data:', cleanUpdateData)
-          
-          // Build the UPDATE query dynamically with actual values
-          const updateFields: string[] = []
-          
-          // Add each field to the update query with proper escaping
-          if (cleanUpdateData.status) {
-            const escapedValue = String(cleanUpdateData.status).replace(/'/g, "''")
-            updateFields.push(`"status" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.settlementDate) {
-            const escapedValue = cleanUpdateData.settlementDate.toISOString()
-            updateFields.push(`"settlementDate" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.settlementAmount) {
-            const escapedValue = String(cleanUpdateData.settlementAmount)
-            updateFields.push(`"settlementAmount" = ${escapedValue}`)
-          }
-          if (cleanUpdateData.paymentMethod) {
-            const escapedValue = String(cleanUpdateData.paymentMethod).replace(/'/g, "''")
-            updateFields.push(`"paymentMethod" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.settlementNotes !== undefined) {
-            const escapedValue = String(cleanUpdateData.settlementNotes || '').replace(/'/g, "''")
-            updateFields.push(`"settlementNotes" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.clientName) {
-            const escapedValue = String(cleanUpdateData.clientName).replace(/'/g, "''")
-            updateFields.push(`"clientName" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.issueDate) {
-            const escapedValue = cleanUpdateData.issueDate.toISOString()
-            updateFields.push(`"issueDate" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.dueDate) {
-            const escapedValue = cleanUpdateData.dueDate.toISOString()
-            updateFields.push(`"dueDate" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.totalAmount) {
-            const escapedValue = String(cleanUpdateData.totalAmount)
-            updateFields.push(`"totalAmount" = ${escapedValue}`)
-          }
-          if (cleanUpdateData.currency) {
-            const escapedValue = String(cleanUpdateData.currency).replace(/'/g, "''")
-            updateFields.push(`"currency" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.description) {
-            const escapedValue = String(cleanUpdateData.description).replace(/'/g, "''")
-            updateFields.push(`"description" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.position) {
-            const escapedValue = String(cleanUpdateData.position).replace(/'/g, "''")
-            updateFields.push(`"position" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.positionUpdatedAt) {
-            const escapedValue = cleanUpdateData.positionUpdatedAt.toISOString()
-            updateFields.push(`"positionUpdatedAt" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.positionUpdatedBy) {
-            const escapedValue = String(cleanUpdateData.positionUpdatedBy).replace(/'/g, "''")
-            updateFields.push(`"positionUpdatedBy" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.workRegion) {
-            const escapedValue = String(cleanUpdateData.workRegion).replace(/'/g, "''")
-            updateFields.push(`"workRegion" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.jobTitle) {
-            const escapedValue = String(cleanUpdateData.jobTitle).replace(/'/g, "''")
-            updateFields.push(`"jobTitle" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.workPeriod) {
-            const escapedValue = String(cleanUpdateData.workPeriod).replace(/'/g, "''")
-            updateFields.push(`"workPeriod" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.category) {
-            const escapedValue = String(cleanUpdateData.category).replace(/'/g, "''")
-            updateFields.push(`"category" = '${escapedValue}'`)
-          }
-          if (cleanUpdateData.notes !== undefined) {
-            const escapedValue = String(cleanUpdateData.notes || '').replace(/'/g, "''")
-            updateFields.push(`"notes" = '${escapedValue}'`)
-          }
-          
-          // Always update updatedAt
-          const now = new Date().toISOString()
-          updateFields.push(`"updatedAt" = '${now}'`)
-          
-          // Make sure we have at least one field to update
-          if (updateFields.length === 0) {
-            console.warn('No fields to update in invoice')
-            throw new Error('No fields to update in invoice')
-          }
-          
-          // Log the final update fields for debugging
-          console.log('Final update fields:', updateFields)
+          console.log('Attempting Prisma update with data:', cleanUpdateData)
           
           // Double-check ID is not null or empty before any update
           if (!id || id.trim() === '') {
@@ -362,28 +268,6 @@ export async function PUT(
           
           console.log('Verified invoice exists with ID:', existingInvoice.id)
           
-          // Build and execute the query
-          const updateClause = updateFields.join(', ')
-          
-          // Make sure we have at least the updatedAt field
-          if (!updateClause.includes('"updatedAt"')) {
-            const now = new Date().toISOString()
-            updateFields.push(`"updatedAt" = '${now}'`)
-          }
-          
-          // Rebuild the update clause with updatedAt field included
-          const finalUpdateClause = updateFields.join(', ')
-          const query = `
-            UPDATE "public"."Invoice"
-            SET ${finalUpdateClause}
-            WHERE "id" = '${cleanId}'
-            RETURNING *
-          `
-          
-          console.log('Executing raw query:', query)
-          console.log('Update clause:', finalUpdateClause)
-          console.log('Update fields:', updateFields)
-          
           // Log the current invoice data for debugging
           console.log('Current invoice data:', {
             id: currentInvoice.id,
@@ -403,107 +287,29 @@ export async function PUT(
             updatedAt: cleanUpdateData.updatedAt
           })
           
-          let result
-          try {
-            // Use a transaction to ensure atomicity
-            result = await (dbWithRetry as any).$transaction(async (tx: any) => {
-              // First verify the invoice exists in the transaction
-              const invoiceInTx = await tx.invoice.findUnique({
-                where: { id: cleanId },
-                select: { id: true }
-              })
-              
-              if (!invoiceInTx) {
-                console.error('Cannot update in transaction: Invoice does not exist with ID:', cleanId)
-                throw new Error('Invoice does not exist with ID: ' + cleanId)
-              }
-              
-              console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
-              
-              // Log the query before execution
-              console.log('About to execute raw query in transaction:', query)
-              
-              // Then execute the raw query
-              const updateResult = await tx.$queryRawUnsafe(query)
-              console.log('Raw query update in transaction successful:', updateResult)
-              return updateResult
+          // Use a transaction to ensure atomicity
+          await (dbWithRetry as any).$transaction(async (tx: any) => {
+            // First verify the invoice exists in the transaction
+            const invoiceInTx = await tx.invoice.findUnique({
+              where: { id: cleanId },
+              select: { id: true }
             })
-           
-            // Handle the result properly
-            const updatedInvoice = Array.isArray(result) ? result[0] : result
-            console.log('Raw query update successful:', updatedInvoice)
-          } catch (rawQueryError) {
-            console.error('Raw query failed with error:', rawQueryError)
             
-            // Try using Prisma instead of raw query
-            console.log('Attempting to update with Prisma instead')
-            const prismaUpdateData: any = {}
-            
-            // Rebuild update data for Prisma
-            if (cleanUpdateData.status) {
-              prismaUpdateData.status = cleanUpdateData.status
-            }
-            if (cleanUpdateData.issueDate) {
-              prismaUpdateData.issueDate = cleanUpdateData.issueDate
-            }
-            if (cleanUpdateData.dueDate) {
-              prismaUpdateData.dueDate = cleanUpdateData.dueDate
-            }
-            if (cleanUpdateData.position) {
-              prismaUpdateData.position = cleanUpdateData.position
-            }
-            if (cleanUpdateData.positionUpdatedAt) {
-              prismaUpdateData.positionUpdatedAt = cleanUpdateData.positionUpdatedAt
-            }
-            if (cleanUpdateData.positionUpdatedBy) {
-              prismaUpdateData.positionUpdatedBy = cleanUpdateData.positionUpdatedBy
-            }
-            if (cleanUpdateData.updatedAt) {
-              prismaUpdateData.updatedAt = cleanUpdateData.updatedAt
+            if (!invoiceInTx) {
+              console.error('Cannot update in transaction: Invoice does not exist with ID:', cleanId)
+              throw new Error('Invoice does not exist with ID: ' + cleanId)
             }
             
-            console.log('Prisma update data:', prismaUpdateData)
-            console.log('Prisma update invoice ID:', cleanId)
+            console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
             
-            // Double-check ID is not null or empty
-            if (!cleanId || cleanId.trim() === '') {
-              console.error('Cannot update with Prisma: Invalid invoice ID')
-              throw new Error('Invoice ID cannot be null or empty for Prisma update')
-            }
+            // Execute the Prisma update
+            await tx.invoice.update({
+              where: { id: cleanId },
+              data: cleanUpdateData
+            })
             
-            // Use a transaction for Prisma update as well
-            try {
-              await (dbWithRetry as any).$transaction(async (tx: any) => {
-                // First verify the invoice exists in the transaction
-                const invoiceInTx = await tx.invoice.findUnique({
-                  where: { id: cleanId },
-                  select: { id: true }
-                })
-                
-                if (!invoiceInTx) {
-                  console.error('Cannot update with Prisma in transaction: Invoice does not exist with ID:', cleanId)
-                  throw new Error('Invoice does not exist with ID: ' + cleanId)
-                }
-                
-                console.log('Verified invoice exists for Prisma update in transaction with ID:', invoiceInTx.id)
-                
-                // Then execute the Prisma update
-                await tx.invoice.update({
-                  where: { id: cleanId },
-                  data: prismaUpdateData
-                })
-                
-                console.log('Prisma update in transaction successful')
-              })
-            } catch (prismaTxError) {
-              console.error('Prisma transaction failed with error:', prismaTxError)
-              throw prismaTxError
-            }
-          }
-          
-          // Handle the result properly
-          const updatedInvoice = Array.isArray(result) ? result[0] : result
-          console.log('Raw query update successful:', updatedInvoice)
+            console.log('Prisma update in transaction successful')
+          })
           
           // Now fetch the invoice with the include
           invoice = await dbWithRetry.invoice.findUnique({
@@ -518,6 +324,8 @@ export async function PUT(
               },
             },
           })
+          
+          console.log('Prisma update successful:', invoice)
         } else {
           // No changes to make, just return the current invoice
           invoice = await dbWithRetry.invoice.findUnique({
@@ -534,7 +342,7 @@ export async function PUT(
           })
         }
       } catch (updateError) {
-        console.error('Raw query update failed, using fallback:', updateError)
+        console.error('Prisma update failed, using fallback:', updateError)
         
         // As a last resort, use the original invoice data but with updated fields
         // This is not ideal but prevents the update from completely failing
