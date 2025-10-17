@@ -241,10 +241,10 @@ export async function PUT(
         cleanUpdateData.updatedAt = new Date()
       }
       
-      // Try to update with Prisma directly to avoid raw query issues
+      // Try to update with a simple raw query to avoid Prisma issues
       try {
         if (Object.keys(cleanUpdateData).length > 0) {
-          console.log('Attempting Prisma update with data:', cleanUpdateData)
+          console.log('Attempting raw query update with data:', cleanUpdateData)
           
           // Double-check ID is not null or empty before any update
           if (!id || id.trim() === '') {
@@ -298,30 +298,48 @@ export async function PUT(
           
           console.log('Update data without createdById:', updateDataWithoutCreatedById)
           
-          // Use a transaction to ensure atomicity
-          await (dbWithRetry as any).$transaction(async (tx: any) => {
-            // First verify the invoice exists in the transaction
-            const invoiceInTx = await tx.invoice.findUnique({
-              where: { id: cleanId },
-              select: { id: true, createdById: true }
-            })
-            
-            if (!invoiceInTx) {
-              console.error('Cannot update in transaction: Invoice does not exist with ID:', cleanId)
-              throw new Error('Invoice does not exist with ID: ' + cleanId)
-            }
-            
-            console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
-            console.log('Invoice in transaction createdById:', invoiceInTx.createdById)
-            
-            // Execute the Prisma update
-            await tx.invoice.update({
-              where: { id: cleanId },
-              data: updateDataWithoutCreatedById
-            })
-            
-            console.log('Prisma update in transaction successful')
-          })
+          // Build a simple raw query
+          const updateFields: string[] = []
+          
+          // Add each field to the update query with proper escaping
+          if (updateDataWithoutCreatedById.issueDate) {
+            const escapedValue = updateDataWithoutCreatedById.issueDate.toISOString()
+            updateFields.push(`"issueDate" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.dueDate) {
+            const escapedValue = updateDataWithoutCreatedById.dueDate.toISOString()
+            updateFields.push(`"dueDate" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.position) {
+            const escapedValue = String(updateDataWithoutCreatedById.position).replace(/'/g, "''")
+            updateFields.push(`"position" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.positionUpdatedAt) {
+            const escapedValue = updateDataWithoutCreatedById.positionUpdatedAt.toISOString()
+            updateFields.push(`"positionUpdatedAt" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.positionUpdatedBy) {
+            const escapedValue = String(updateDataWithoutCreatedById.positionUpdatedBy).replace(/'/g, "''")
+            updateFields.push(`"positionUpdatedBy" = '${escapedValue}'`)
+          }
+          
+          // Always update updatedAt
+          const now = new Date().toISOString()
+          updateFields.push(`"updatedAt" = '${now}'`)
+          
+          // Build the query
+          const query = `
+            UPDATE "public"."Invoice"
+            SET ${updateFields.join(', ')}
+            WHERE "id" = '${cleanId}'
+          `
+          
+          console.log('Executing raw query:', query)
+          
+          // Execute the raw query
+          await (dbWithRetry as any).$executeRawUnsafe(query)
+          
+          console.log('Raw query update successful')
           
           // Now fetch the invoice with the include
           invoice = await dbWithRetry.invoice.findUnique({
@@ -337,7 +355,7 @@ export async function PUT(
             },
           })
           
-          console.log('Prisma update successful:', invoice)
+          console.log('Raw query update successful:', invoice)
         } else {
           // No changes to make, just return the current invoice
           invoice = await dbWithRetry.invoice.findUnique({
@@ -354,7 +372,7 @@ export async function PUT(
           })
         }
       } catch (updateError) {
-        console.error('Prisma update failed, using fallback:', updateError)
+        console.error('Raw query update failed, using fallback:', updateError)
         
         // As a last resort, use the original invoice data but with updated fields
         // This is not ideal but prevents the update from completely failing
