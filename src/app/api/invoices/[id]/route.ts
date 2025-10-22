@@ -241,10 +241,10 @@ export async function PUT(
         cleanUpdateData.updatedAt = new Date()
       }
       
-      // Try to update with a transaction to ensure atomicity
+      // Try to update with a simple raw query to avoid transaction issues
       try {
         if (Object.keys(cleanUpdateData).length > 0) {
-          console.log('Attempting transaction update with data:', cleanUpdateData)
+          console.log('Attempting raw query update with data:', cleanUpdateData)
           
           // Double-check ID is not null or empty before any update
           if (!id || id.trim() === '') {
@@ -284,118 +284,134 @@ export async function PUT(
           
           console.log('Update data without createdById:', updateDataWithoutCreatedById)
           
-          // Use a transaction to ensure atomicity
-          await db.$transaction(async (tx) => {
-            // First verify the invoice exists in the transaction
-            const invoiceInTx = await tx.invoice.findUnique({
-              where: { id: cleanId },
-              select: { id: true, createdById: true }
+          // Create history records first to track the changes
+          const historyRecords: any[] = []
+          
+          // Get a valid changedBy value
+          const changedByValue = user?.name || user?.email || 'system'
+          const safeChangedByValue = String(changedByValue).replace(/'/g, "''")
+          
+          // Add status change history if status is being updated
+          if (cleanUpdateData.status && cleanUpdateData.status !== currentInvoice.status) {
+            historyRecords.push({
+              invoiceId: cleanId,
+              field: 'status',
+              oldValue: currentInvoice.status || '',
+              newValue: cleanUpdateData.status,
+              changedBy: safeChangedByValue,
+              notes: notes || '',
+            })
+          }
+          
+          // Add position change history if position is being updated
+          if (cleanUpdateData.position && cleanUpdateData.position !== currentInvoice.position) {
+            historyRecords.push({
+              invoiceId: cleanId,
+              field: 'position',
+              oldValue: currentInvoice.position || '',
+              newValue: cleanUpdateData.position,
+              changedBy: safeChangedByValue,
+              notes: notes || '',
+            })
+          }
+          
+          // Add positionUpdatedAt change history if it was null and is now set
+          if (!currentInvoice.positionUpdatedAt && cleanUpdateData.positionUpdatedAt) {
+            historyRecords.push({
+              invoiceId: cleanId,
+              field: 'positionUpdatedAt',
+              oldValue: '',
+              newValue: cleanUpdateData.positionUpdatedAt.toISOString(),
+              changedBy: safeChangedByValue,
+              notes: 'Set initial position update timestamp',
+            })
+          }
+          
+          // Add positionUpdatedBy change history if it was null and is now set
+          if (!currentInvoice.positionUpdatedBy && cleanUpdateData.positionUpdatedBy) {
+            historyRecords.push({
+              invoiceId: cleanId,
+              field: 'positionUpdatedBy',
+              oldValue: '',
+              newValue: cleanUpdateData.positionUpdatedBy,
+              changedBy: safeChangedByValue,
+              notes: 'Set initial position update user',
+            })
+          }
+          
+          // Create all history records
+          for (const record of historyRecords) {
+            const timestamp = Date.now().toString(36)
+            const randomPart = Math.random().toString(36).substring(2, 15)
+            const cuid = `c${timestamp}${randomPart}`
+            
+            console.log('Creating history record:', {
+              id: cuid,
+              invoiceId: record.invoiceId,
+              field: record.field,
+              oldValue: record.oldValue,
+              newValue: record.newValue,
+              changedBy: record.changedBy,
+              changedAt: new Date().toISOString(),
+              notes: record.notes
             })
             
-            if (!invoiceInTx) {
-              console.error('Cannot update in transaction: Invoice does not exist with ID:', cleanId)
-              throw new Error('Invoice does not exist with ID: ' + cleanId)
-            }
-            
-            console.log('Verified invoice exists in transaction with ID:', invoiceInTx.id)
-            console.log('Invoice in transaction createdById:', invoiceInTx.createdById)
-            
-            // Create history records first to track the changes
-            const historyRecords: any[] = []
-            
-            // Get a valid changedBy value
-            const changedByValue = user?.name || user?.email || 'system'
-            const safeChangedByValue = String(changedByValue).replace(/'/g, "''")
-            
-            // Add status change history if status is being updated
-            if (cleanUpdateData.status && cleanUpdateData.status !== currentInvoice.status) {
-              historyRecords.push({
-                invoiceId: cleanId,
-                field: 'status',
-                oldValue: currentInvoice.status || '',
-                newValue: cleanUpdateData.status,
-                changedBy: safeChangedByValue,
-                notes: notes || '',
-              })
-            }
-            
-            // Add position change history if position is being updated
-            if (cleanUpdateData.position && cleanUpdateData.position !== currentInvoice.position) {
-              historyRecords.push({
-                invoiceId: cleanId,
-                field: 'position',
-                oldValue: currentInvoice.position || '',
-                newValue: cleanUpdateData.position,
-                changedBy: safeChangedByValue,
-                notes: notes || '',
-              })
-            }
-            
-            // Add positionUpdatedAt change history if it was null and is now set
-            if (!currentInvoice.positionUpdatedAt && cleanUpdateData.positionUpdatedAt) {
-              historyRecords.push({
-                invoiceId: cleanId,
-                field: 'positionUpdatedAt',
-                oldValue: '',
-                newValue: cleanUpdateData.positionUpdatedAt.toISOString(),
-                changedBy: safeChangedByValue,
-                notes: 'Set initial position update timestamp',
-              })
-            }
-            
-            // Add positionUpdatedBy change history if it was null and is now set
-            if (!currentInvoice.positionUpdatedBy && cleanUpdateData.positionUpdatedBy) {
-              historyRecords.push({
-                invoiceId: cleanId,
-                field: 'positionUpdatedBy',
-                oldValue: '',
-                newValue: cleanUpdateData.positionUpdatedBy,
-                changedBy: safeChangedByValue,
-                notes: 'Set initial position update user',
-              })
-            }
-            
-            // Create all history records
-            for (const record of historyRecords) {
-              const timestamp = Date.now().toString(36)
-              const randomPart = Math.random().toString(36).substring(2, 15)
-              const cuid = `c${timestamp}${randomPart}`
-              
-              console.log('Creating history record:', {
+            await db.invoiceHistory.create({
+              data: {
                 id: cuid,
                 invoiceId: record.invoiceId,
                 field: record.field,
                 oldValue: record.oldValue,
                 newValue: record.newValue,
                 changedBy: record.changedBy,
-                changedAt: new Date().toISOString(),
-                notes: record.notes
-              })
-              
-              await tx.invoiceHistory.create({
-                data: {
-                  id: cuid,
-                  invoiceId: record.invoiceId,
-                  field: record.field,
-                  oldValue: record.oldValue,
-                  newValue: record.newValue,
-                  changedBy: record.changedBy,
-                  changedAt: new Date(),
-                  notes: record.notes,
-                }
-              })
-            }
-            
-            // Execute the Prisma update in the transaction
-            await tx.invoice.update({
-              where: { id: cleanId },
-              data: updateDataWithoutCreatedById
+                changedAt: new Date(),
+                notes: record.notes,
+              }
             })
-            
-            console.log('Prisma update in transaction successful')
-          })
+          }
           
-          console.log('Transaction update successful')
+          // Build a simple raw query
+          const updateFields: string[] = []
+          
+          // Add each field to the update query with proper escaping
+          if (updateDataWithoutCreatedById.status) {
+            const escapedValue = String(updateDataWithoutCreatedById.status).replace(/'/g, "''")
+            updateFields.push(`"status" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.position) {
+            const escapedValue = String(updateDataWithoutCreatedById.position).replace(/'/g, "''")
+            updateFields.push(`"position" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.positionUpdatedAt) {
+            const escapedValue = updateDataWithoutCreatedById.positionUpdatedAt.toISOString()
+            updateFields.push(`"positionUpdatedAt" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.positionUpdatedBy) {
+            const escapedValue = String(updateDataWithoutCreatedById.positionUpdatedBy).replace(/'/g, "''")
+            updateFields.push(`"positionUpdatedBy" = '${escapedValue}'`)
+          }
+          if (updateDataWithoutCreatedById.notes !== undefined) {
+            const escapedValue = String(updateDataWithoutCreatedById.notes || '').replace(/'/g, "''")
+            updateFields.push(`"notes" = '${escapedValue}'`)
+          }
+          
+          // Always update updatedAt
+          const now = new Date().toISOString()
+          updateFields.push(`"updatedAt" = '${now}'`)
+          
+          // Build the query
+          const query = `
+            UPDATE "public"."Invoice"
+            SET ${updateFields.join(', ')}
+            WHERE "id" = '${cleanId}'
+          `
+          
+          console.log('Executing raw query:', query)
+          
+          // Execute the raw query using the direct db client
+          await db.$executeRawUnsafe(query)
+          
+          console.log('Raw query update successful')
           
           // Now fetch the invoice with the include
           invoice = await dbWithRetry.invoice.findUnique({
@@ -411,7 +427,7 @@ export async function PUT(
             },
           })
           
-          console.log('Transaction update successful:', invoice)
+          console.log('Raw query update successful:', invoice)
         } else {
           // No changes to make, just return the current invoice
           invoice = await dbWithRetry.invoice.findUnique({
@@ -428,7 +444,7 @@ export async function PUT(
           })
         }
       } catch (updateError) {
-        console.error('Transaction update failed, using fallback:', updateError)
+        console.error('Raw query update failed, using fallback:', updateError)
         
         // As a last resort, use the original invoice data but with updated fields
         // This is not ideal but prevents the update from completely failing
