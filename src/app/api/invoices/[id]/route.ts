@@ -241,10 +241,10 @@ export async function PUT(
         cleanUpdateData.updatedAt = new Date()
       }
       
-      // Try to update with a simple raw query to avoid transaction issues
+      // Try to update with Prisma to avoid raw query trigger issues
       try {
         if (Object.keys(cleanUpdateData).length > 0) {
-          console.log('Attempting raw query update with data:', cleanUpdateData)
+          console.log('Attempting Prisma update with data:', cleanUpdateData)
           
           // Double-check ID is not null or empty before any update
           if (!id || id.trim() === '') {
@@ -370,48 +370,13 @@ export async function PUT(
             })
           }
           
-          // Build a simple raw query
-          const updateFields: string[] = []
+          // Execute the Prisma update
+          await db.invoice.update({
+            where: { id: cleanId },
+            data: updateDataWithoutCreatedById
+          })
           
-          // Add each field to the update query with proper escaping
-          if (updateDataWithoutCreatedById.status) {
-            const escapedValue = String(updateDataWithoutCreatedById.status).replace(/'/g, "''")
-            updateFields.push(`"status" = '${escapedValue}'`)
-          }
-          if (updateDataWithoutCreatedById.position) {
-            const escapedValue = String(updateDataWithoutCreatedById.position).replace(/'/g, "''")
-            updateFields.push(`"position" = '${escapedValue}'`)
-          }
-          if (updateDataWithoutCreatedById.positionUpdatedAt) {
-            const escapedValue = updateDataWithoutCreatedById.positionUpdatedAt.toISOString()
-            updateFields.push(`"positionUpdatedAt" = '${escapedValue}'`)
-          }
-          if (updateDataWithoutCreatedById.positionUpdatedBy) {
-            const escapedValue = String(updateDataWithoutCreatedById.positionUpdatedBy).replace(/'/g, "''")
-            updateFields.push(`"positionUpdatedBy" = '${escapedValue}'`)
-          }
-          if (updateDataWithoutCreatedById.notes !== undefined) {
-            const escapedValue = String(updateDataWithoutCreatedById.notes || '').replace(/'/g, "''")
-            updateFields.push(`"notes" = '${escapedValue}'`)
-          }
-          
-          // Always update updatedAt
-          const now = new Date().toISOString()
-          updateFields.push(`"updatedAt" = '${now}'`)
-          
-          // Build the query
-          const query = `
-            UPDATE "public"."Invoice"
-            SET ${updateFields.join(', ')}
-            WHERE "id" = '${cleanId}'
-          `
-          
-          console.log('Executing raw query:', query)
-          
-          // Execute the raw query using the direct db client
-          await db.$executeRawUnsafe(query)
-          
-          console.log('Raw query update successful')
+          console.log('Prisma update successful')
           
           // Now fetch the invoice with the include
           invoice = await dbWithRetry.invoice.findUnique({
@@ -427,7 +392,7 @@ export async function PUT(
             },
           })
           
-          console.log('Raw query update successful:', invoice)
+          console.log('Prisma update successful:', invoice)
         } else {
           // No changes to make, just return the current invoice
           invoice = await dbWithRetry.invoice.findUnique({
@@ -444,7 +409,7 @@ export async function PUT(
           })
         }
       } catch (updateError) {
-        console.error('Raw query update failed, using fallback:', updateError)
+        console.error('Prisma update failed, using fallback:', updateError)
         
         // As a last resort, use the original invoice data but with updated fields
         // This is not ideal but prevents the update from completely failing
