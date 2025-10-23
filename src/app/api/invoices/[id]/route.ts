@@ -370,17 +370,58 @@ export async function PUT(
             })
           }
           
-          // Try a simpler approach - update fields one by one to avoid trigger issues
+          // Try a simpler approach - update basic fields first
           try {
-            // Execute the Prisma update
+            // Update only basic fields that are less likely to cause trigger issues
+            const basicUpdateData: any = {}
+            
+            if (updateDataWithoutCreatedById.status) {
+              basicUpdateData.status = updateDataWithoutCreatedById.status
+            }
+            
+            if (updateDataWithoutCreatedById.position) {
+              basicUpdateData.position = updateDataWithoutCreatedById.position
+            }
+            
+            if (updateDataWithoutCreatedById.notes !== undefined) {
+              basicUpdateData.notes = updateDataWithoutCreatedById.notes
+            }
+            
+            // Always update updatedAt
+            basicUpdateData.updatedAt = new Date()
+            
+            console.log('Updating basic fields:', basicUpdateData)
+            
+            // Execute the Prisma update with basic fields
             await db.invoice.update({
               where: { id: cleanId },
-              data: updateDataWithoutCreatedById
+              data: basicUpdateData
             })
             
-            console.log('Prisma update successful')
+            console.log('Basic fields update successful')
+            
+            // Now try to update the remaining fields one by one
+            const remainingFields = Object.keys(updateDataWithoutCreatedById).filter(
+              field => !['status', 'position', 'notes', 'updatedAt'].includes(field)
+            )
+            
+            for (const field of remainingFields) {
+              try {
+                console.log(`Updating remaining field: ${field}`)
+                await db.invoice.update({
+                  where: { id: cleanId },
+                  data: { [field]: updateDataWithoutCreatedById[field] }
+                })
+                console.log(`Successfully updated field: ${field}`)
+              } catch (fieldError: any) {
+                console.error(`Failed to update field: ${field}`, fieldError)
+                // Continue with other fields
+              }
+            }
+            
+            console.log('All field updates completed')
           } catch (error: any) {
-            console.error('Prisma update failed with all fields, trying individual updates:', error)
+            console.error('Update failed, trying individual updates:', error)
             
             // Update fields one by one to identify which field is causing the issue
             const updateFields = Object.keys(updateDataWithoutCreatedById)
