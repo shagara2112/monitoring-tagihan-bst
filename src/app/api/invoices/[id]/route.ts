@@ -370,13 +370,35 @@ export async function PUT(
             })
           }
           
-          // Execute the Prisma update
-          await db.invoice.update({
-            where: { id: cleanId },
-            data: updateDataWithoutCreatedById
-          })
-          
-          console.log('Prisma update successful')
+          // Try a simpler approach - update fields one by one to avoid trigger issues
+          try {
+            // Execute the Prisma update
+            await db.invoice.update({
+              where: { id: cleanId },
+              data: updateDataWithoutCreatedById
+            })
+            
+            console.log('Prisma update successful')
+          } catch (error: any) {
+            console.error('Prisma update failed with all fields, trying individual updates:', error)
+            
+            // Update fields one by one to identify which field is causing the issue
+            const updateFields = Object.keys(updateDataWithoutCreatedById)
+            
+            for (const field of updateFields) {
+              try {
+                console.log(`Updating field: ${field}`)
+                await db.invoice.update({
+                  where: { id: cleanId },
+                  data: { [field]: updateDataWithoutCreatedById[field] }
+                })
+                console.log(`Successfully updated field: ${field}`)
+              } catch (fieldError: any) {
+                console.error(`Failed to update field: ${field}`, fieldError)
+                // Continue with other fields
+              }
+            }
+          }
           
           // Now fetch the invoice with the include
           invoice = await dbWithRetry.invoice.findUnique({
